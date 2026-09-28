@@ -1,0 +1,12 @@
+[Unit]
+Description=Push ~/dotfiles to remote
+# Не тянем сеть при загрузке, ждём рабочее соединение.
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/dotfiles
+ExecStart=/usr/bin/git push
+# Публичный ключ от агента нужен только если remote по ssh.
+# Environment=GIT_SSH_COMMAND=ssh -i %h/.ssh/id_ed25519 -o IdentitiesOnly=yes

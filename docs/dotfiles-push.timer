@@ -1,0 +1,14 @@
+[Unit]
+Description=Push ~/dotfiles every 15 minutes if there is anything to push
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=15min
+# Случайный разброс, чтобы не стучаться в GitHub строго каждые 15 минут
+# в одно и то же время.
+RandomizedDelaySec=3min
+# Нет сети — не беда, будет следующая попытка.
+Persistent=true
+
+[Install]
+WantedBy=timers.target

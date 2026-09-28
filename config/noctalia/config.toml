@@ -1,0 +1,17 @@
+[shell]
+polkit_agent = true
+
+# macOS-style top bar: windows centered, clock + status on the right
+[bar.default]
+start = ["launcher", "wallpaper", "workspaces"]
+center = ["winlist"]
+end = ["tray", "notifications", "clipboard", "network", "bluetooth", "volume", "brightness", "battery", "control-center", "keyboard_layout", "clock", "session"]
+
+# Воркспейсы в niri именованные ("1".."10"), поэтому показываем имена, а не номера
+[widget.workspaces]
+label_source = "name"
+show_all_outputs = false
+
+# Focused window centered, neighbors flanking; click an icon to focus it
+[widget.winlist]
+type = "davy1ex/niri-windows:winlist"

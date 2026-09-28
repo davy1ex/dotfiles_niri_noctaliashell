@@ -1,0 +1,8 @@
+#!/bin/sh
+# Toggle between the first two niri keyboard layouts (us <-> ru)
+current=$(niri msg keyboard-layouts | grep '^ \*' | awk '{print $2}')
+if [ "$current" = "0" ]; then
+    niri msg action switch-layout 1
+else
+    niri msg action switch-layout 0
+fi

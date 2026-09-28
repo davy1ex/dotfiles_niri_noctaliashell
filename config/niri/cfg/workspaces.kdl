@@ -1,0 +1,18 @@
+// ─── Статические рабочие столы ───
+// https://github.com/niri-wm/niri/wiki/Configuration:-Named-Workspaces
+//
+// В niri воркспейсы динамические: номер — это позиция на мониторе, а не ID.
+// Поэтому `focus-workspace 9` не сработает, пока 9-го воркспейса физически нет.
+// Именованные воркспейсы существуют всегда (даже пустые) и не исчезают при
+// переключении, поэтому в binds к ним нужно обращаться по имени в кавычках.
+
+workspace "1"
+workspace "2"
+workspace "3"
+workspace "4"
+workspace "5"
+workspace "6"
+workspace "7"
+workspace "8"
+workspace "9"
+workspace "10"

@@ -1,0 +1,8 @@
+{
+  "settings.icon_size.label": "Icon size",
+  "settings.icon_size.description": "Window icon size in pixels.",
+  "settings.max_side.label": "Max windows per side",
+  "settings.max_side.description": "Maximum number of window icons shown on each side of the focused window.",
+  "settings.title_max_length.label": "Max title length",
+  "settings.title_max_length.description": "Maximum characters shown in the focused window title."
+}

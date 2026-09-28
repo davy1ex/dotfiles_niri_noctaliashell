@@ -1,0 +1,42 @@
+// ────────────── Input Configuration ──────────────
+// https://github.com/YaLTeR/niri/wiki/Configuration:-Input
+
+gestures {
+ hot-corners {
+    off
+ }       
+}
+
+input {
+    keyboard {
+        xkb {
+            //If you want to overwrite your keyboard layout,
+            // uncomment the line below and change the layout accordingly.
+            layout "us,ru" // English + Russian
+            options "grp:caps_toggle" // Caps Lock = pure layout switch, no uppercase
+        }
+        numlock // Enable numlock on startup
+    }
+
+    touchpad {
+        tap // Enable tap-to-click
+        natural-scroll // Enable natural (macOS-style) scrolling
+    }
+
+    mouse {
+        // If you want to disable Mouse Acceleration,
+        // uncomment the lines below.
+        //accel-profile "flat"
+        //accel-speed 0.0
+    }
+
+    // Фокус за окном по наведению мыши.
+    // max-scroll-amount="0%" запрещает срабатывание, если фокус вызвал бы
+    // скролл воркспейса — чинит баг с переключением на соседнее окно,
+    // когда курсор упирается в левый/правый край монитора
+    // (невидимые поля ресайза клиентов с CSD вылезают за геометрию окна).
+    // Полностью отключить наведение мыши: заменить блок ниже на
+    // просто `// focus-follows-mouse`
+    focus-follows-mouse max-scroll-amount="0%"
+    workspace-auto-back-and-forth // Enable workspace back & forth switching
+}

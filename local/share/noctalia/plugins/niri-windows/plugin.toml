@@ -1,0 +1,43 @@
+id = "davy1ex/niri-windows"
+name = "Niri Windows"
+version = "1.0.0"
+plugin_api = 30
+author = "davy1ex"
+description = "Current workspace windows split around the focused one, macOS-style"
+dependencies = ["niri"]
+
+# Plugin-level settings, shared by the service and the widget.
+[[setting]]
+key     = "icon_size"
+type    = "int"
+label_key = "settings.icon_size.label"
+description_key = "settings.icon_size.description"
+default = 18
+min     = 12
+max     = 32
+
+[[setting]]
+key     = "max_side"
+type    = "int"
+label_key = "settings.max_side.label"
+description_key = "settings.max_side.description"
+default = 4
+min     = 1
+max     = 8
+
+[[setting]]
+key     = "title_max_length"
+type    = "int"
+label_key = "settings.title_max_length.label"
+description_key = "settings.title_max_length.description"
+default = 28
+min     = 8
+max     = 80
+
+[[service]]
+id    = "windows"
+entry = "service.luau"
+
+[[widget]]
+id    = "winlist"
+entry = "widget.luau"
