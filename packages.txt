@@ -40,6 +40,21 @@ ttf-meslo-nerd
 nautilus
 firefox
 
+# ── Qt/KDE-приложения: тема из палитры Noctalia ─────────────────────────
+# Dolphin + плагин KDE-платформенной темы + бэкенд портала, который рисует
+# диалоги «открыть/сохранить» (в т.ч. Ctrl+O в редакторах). Без
+# plasma-integration нет KDEPlasmaPlatformTheme6.so, и QT_QPA_PLATFORMTHEME=kde
+# не сработает.
+dolphin
+plasma-integration
+xdg-desktop-portal-kde
+kconfig                # kreadconfig6/kwriteconfig6 — install.sh правит kdeglobals
+
+# qt6ct НЕ нужен: цвета Qt-приложений берутся из kdeglobals, который
+# перезаписывает Noctalia. Поставишь qt6ct и выставишь
+# QT_QPA_PLATFORMTHEME=qt6ct — вернёшь рассинхрон палитры и иконок
+# (см. README → «Темы Qt/KDE-приложений»).
+
 # ── прочее, что ты ставил мимо конфигов ────────────────────────────────
 # Убери строки, которые не нужны. Формат: имя пакета [# комментарий]
 zsh

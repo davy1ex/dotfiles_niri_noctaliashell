@@ -10,7 +10,8 @@
 ├── packages.txt            пакеты для чистой установки
 ├── config/
 │   ├── niri/               → ~/.config/niri
-│   └── noctalia/           → ~/.config/noctalia
+│   ├── noctalia/           → ~/.config/noctalia
+│   └── environment.d/      → ~/.config/environment.d  (пофайлово)
 ├── local/
 │   ├── bin/                → ~/.local/bin  (пофайлово)
 │   └── share/noctalia/plugins/niri-windows/  → ~/.local/share/noctalia/plugins/
@@ -77,9 +78,43 @@ systemctl --user enable --now dotfiles-push.timer
 | `config/niri/cfg/animation.kdl` | анимации |
 | `config/niri/cfg/autostart.kdl` | что стартует вместе с niri |
 | `config/noctalia/config.toml` | бар, виджеты, плагины |
+| `config/environment.d/98-qt-platformtheme.conf` | тема Qt-приложений для systemd-юнитов |
 
 Конфиг разбит на `include` не просто так: после правки одного файла niri
 перечитывает только его, а не весь конфиг. Не склеивай обратно в один файл.
+
+## Темы Qt/KDE-приложений
+
+Dolphin, диалоги портала и прочие KF6/Qt-приложения красятся из **kdeglobals**,
+который перезаписывает Noctalia при смене темы (шаблон `kcolorscheme` +
+действие `kde-color-scheme`). Проверить, что палитра доехала:
+
+```bash
+kreadconfig6 --file ~/.config/kdeglobals --group Colors:Window --key BackgroundNormal
+# 31,31,36 — тёмная, 240,237,244 — светлая
+```
+
+Три детали, без которых не работает:
+
+1. **`QT_QPA_PLATFORMTHEME "kde"`** в `cfg/misc.kdl` — плагин из
+   `plasma-integration`. Значение `gtk3` (было раньше) берёт тему GTK3, у
+   которой в системе есть только тёмный вариант, поэтому Qt-окна не
+   светлели. Значение `qt6ct` даёт рассинхрон: палитра читается один раз при
+   старте приложения, а цвета иконок в KF6 берутся из kdeglobals на лету —
+   после смены темы получаются тёмные иконки на тёмном фоне.
+2. **`[KDE] color-scheme=noctalia` в `~/.config/kdeglobals`.** Без него
+   KColorScheme не находит `~/.local/share/color-schemes/noctalia.colors` и
+   откатывается на Breeze (светлую) — тихо, без ошибок. Файл генерируемый,
+   симлинком сюда его не положить, поэтому `install.sh` проставляет ключ
+   через `kwriteconfig6` (идемпотентно, другие группы не трогает).
+3. **`config/environment.d/98-qt-platformtheme.conf`.** Переменная из niri
+   попадает только в процессы, которые он сам спавнит. Портал стартует как
+   systemd-юнит и её не наследует — отсюда светлые диалоги «открыть/сохнить».
+   Файл нужен и для портала, и для всего, что запускается через D-Bus.
+
+Уже открытые терминалы хранят старое значение — после смены конфига их надо
+перезапустить, иначе Qt-приложение, запущенное из старого шелла, возьмёт
+прежнюю тему.
 
 ## Плагин winlist
 

@@ -74,6 +74,7 @@ done
 LINKS=(
     "config/niri|$HOME/.config/niri"
     "config/noctalia|$HOME/.config/noctalia"
+    "config/environment.d/98-qt-platformtheme.conf|$HOME/.config/environment.d/98-qt-platformtheme.conf"
     "local/share/noctalia/plugins/niri-windows|$HOME/.local/share/noctalia/plugins/niri-windows"
     "local/bin/toggle-kb-layout|$HOME/.local/bin/toggle-kb-layout"
 )
@@ -131,6 +132,39 @@ link_one() {
         rm -rf -- "$target"
         ln -s -- "$src" "$target"
         ok "${target/#$HOME/\~} → ${rel}"
+    fi
+}
+
+# ── то, что нельзя выразить симлинком ───────────────────────────────────
+# kdeglobals переписывает Noctalia при каждой смене темы, поэтому в репо его
+# держать нельзя (в истории сыпались бы авто-генерируемые цвета). Но без ключа
+# [KDE] color-scheme KF6-приложения (Dolphin, диалоги портала) берут схему
+# по умолчанию — Breeze, то есть светлую. Ловим это здесь.
+fixups() {
+    printf '\n%sДоработки%s\n' "$C_B" "$C_0"
+
+    local kdeglobals="$HOME/.config/kdeglobals"
+    local scheme="noctalia"          # имя файла ~/.local/share/color-schemes/noctalia.colors
+    local cur
+
+    if [[ ! -f "$kdeglobals" ]]; then
+        skip "kdeglobals ещё нет (появится после первого запуска Noctalia)"
+        return 0
+    fi
+    if ! command -v kwriteconfig6 >/dev/null 2>&1; then
+        warn "нет kwriteconfig6 — [KDE] color-scheme не выставлен, поставь kde-config"
+        return 0
+    fi
+
+    cur="$(kreadconfig6 --file "$kdeglobals" --group KDE --key color-scheme 2>/dev/null || true)"
+    if [[ "$cur" == "$scheme" ]]; then
+        skip "kdeglobals: color-scheme=$scheme уже на месте"
+    else
+        # kwriteconfig6 дописывает ключ в существующую группу, остальные
+        # ([Colors:*], [General], [KDE] contrast) не трогает — это важно,
+        # их потом перезапишет Noctalia.
+        run kwriteconfig6 --file "$kdeglobals" --group KDE --key color-scheme "$scheme"
+        done_msg "kdeglobals: [KDE] color-scheme=$scheme"
     fi
 }
 
@@ -199,6 +233,54 @@ reload_session() {
             && done_msg "плагин winlist включён" \
             || warn "не смог включить плагин winlist — включи вручную"
     fi
+
+    # Портал (диалоги «открыть/сохранить» — в том числе Ctrl+O в редакторах)
+    # живёт как systemd-юнит и не наследует переменные композитора, поэтому
+    # перезапускаем его с выставленным вручную окружением. Без этого диалог
+    # рисуется дефолтной темой Qt и не совпадает с системной.
+    if command -v systemctl >/dev/null 2>&1 && [[ -n "${WAYLAND_DISPLAY:-}" ]]; then
+        reload_portal
+    else
+        skip "портал не перезапускаю (нет systemctl или WAYLAND_DISPLAY)"
+    fi
+
+    skip "уже открытые терминалы держат прежний QT_QPA_PLATFORMTHEME — перезапусти их"
+}
+
+# Перезапуск xdg-desktop-portal* с QT_QPA_PLATFORMTHEME=kde. Имена юнитов
+# отличаются между дистрибутивами (kde/plasma-…), поэтому берём только те,
+# что реально есть в этой системе.
+reload_portal() {
+    local -a candidates=(
+        xdg-desktop-portal.service
+        xdg-desktop-portal-kde.service
+        plasma-xdg-desktop-portal-kde.service
+        xdg-desktop-portal-gtk.service
+        xdg-desktop-portal-gnome.service
+    )
+    local -a present=()
+    local unit
+
+    for unit in "${candidates[@]}"; do
+        if systemctl --user cat "$unit" >/dev/null 2>&1; then
+            present+=("$unit")
+        fi
+    done
+
+    if (( ! ${#present[@]} )); then
+        skip "юниты портала не найдены — поставь xdg-desktop-portal*"
+        return 0
+    fi
+
+    if run systemctl --user set-environment QT_QPA_PLATFORMTHEME=kde; then
+        if run systemctl --user restart "${present[@]}" >/dev/null; then
+            done_msg "портал перезапущен: ${#present[@]} юнитов"
+        else
+            warn "не смог перезапустить портал — диалоги могут остаться в старой теме"
+        fi
+    else
+        warn "не смог выставить окружение для портала"
+    fi
 }
 
 # ── main ───────────────────────────────────────────────────────────────
@@ -229,6 +311,8 @@ if (( DO_PACKAGES )); then
     printf '\n%sПакеты%s\n' "$C_B" "$C_0"
     install_packages
 fi
+
+fixups
 
 (( DO_RELOAD )) && reload_session
 
