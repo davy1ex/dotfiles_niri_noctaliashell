@@ -33,6 +33,45 @@ cd ~/dotfiles
 Опции: `-n` (dry-run, показать что будет), `-N` (не перезагружать сессию),
 `-p` (поставить пакеты), `-h`.
 
+### Первый вход: что доделать руками
+
+1. **Включить шаблон `KColorScheme`** в Noctalia: Settings → Templates →
+   KColorScheme. Он пишет `~/.local/share/color-schemes/noctalia.colors` и
+   `~/.config/kdeglobals` — без него тема Qt/KDE-приложений не работает и
+   `install.sh` об этом предупредит. `install.sh` можно перезапустить после.
+2. **Создать сессию niri** (WM-сессия / tty). `packages.txt` ставит бинари,
+   но не настраивает автозапуск — это зависит от того, чем ты входишь.
+3. **Перезапустить открытые терминалы**: они держат прежнее окружение.
+
+Проверить, что всё встало:
+
+```bash
+niri validate                                        # config is valid
+kreadconfig6 --file ~/.config/kdeglobals --group KDE --key color-scheme   # noctalia
+kreadconfig6 --file ~/.config/kdeglobals --group Colors:Window --key BackgroundNormal
+```
+
+### Чего в репозитории нет
+
+**Состояние Noctalia (`~/.local/state/noctalia/settings.toml`) не версионируется.**
+В её конфиг-стеке `settings.toml` перекрывает `config/noctalia/config.toml`
+(это видно и в живой панели: там ram/cpu/preview из `settings.toml`, а не
+layout из `config.toml`). То есть на чистой машине:
+
+- панель, виджеты, плагины, тема и список шаблонов будут дефолтными;
+- `config/noctalia/config.toml` из репо применится только к тем ключам, которых
+  нет в `settings.toml` (на практике — почти ни к каким).
+
+Снимок текущего состояния снять можно так:
+
+```bash
+noctalia config export            # merged: config-dir *.toml + settings.toml
+```
+
+Если хочется, чтобы переезд воспроизводил панель и тему один в один —
+скажи, добавлю в репо пресет и посев в `install.sh`. Пока этого нет, смотри
+на первый пункт выше.
+
 ## Сохранение правок
 
 Симлинки двусторонние — правь `~/.config/niri/cfg/keybinds.kdl` как обычно,

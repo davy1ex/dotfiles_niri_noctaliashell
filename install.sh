@@ -145,26 +145,34 @@ fixups() {
 
     local kdeglobals="$HOME/.config/kdeglobals"
     local scheme="noctalia"          # имя файла ~/.local/share/color-schemes/noctalia.colors
+    local colors="$HOME/.local/share/color-schemes/$scheme.colors"
     local cur
 
-    if [[ ! -f "$kdeglobals" ]]; then
-        skip "kdeglobals ещё нет (появится после первого запуска Noctalia)"
-        return 0
-    fi
     if ! command -v kwriteconfig6 >/dev/null 2>&1; then
         warn "нет kwriteconfig6 — [KDE] color-scheme не выставлен, поставь kde-config"
-        return 0
+    else
+        # Файла может ещё не быть (его создаёт Noctalia) — kwriteconfig6
+        # создаст его сам, а Noctalia потом допишет свои цвета и сохранит ключ.
+        cur="$(kreadconfig6 --file "$kdeglobals" --group KDE --key color-scheme 2>/dev/null || true)"
+        if [[ "$cur" == "$scheme" ]]; then
+            skip "kdeglobals: color-scheme=$scheme уже на месте"
+        else
+            # kwriteconfig6 дописывает ключ в существующую группу, остальные
+            # ([Colors:*], [General], [KDE] contrast) не трогает — это важно,
+            # их потом перезапишет Noctalia.
+            run kwriteconfig6 --file "$kdeglobals" --group KDE --key color-scheme "$scheme"
+            done_msg "kdeglobals: [KDE] color-scheme=$scheme"
+        fi
     fi
 
-    cur="$(kreadconfig6 --file "$kdeglobals" --group KDE --key color-scheme 2>/dev/null || true)"
-    if [[ "$cur" == "$scheme" ]]; then
-        skip "kdeglobals: color-scheme=$scheme уже на месте"
+    # Палитра Noctalia = шаблон kcolorscheme. Пока он выключен, файла нет и всё
+    # выше проставлено вхолостую: KColorScheme не находит схему и молча берёт
+    # Breeze (светлую). На чистой машине после установки это ровно тот случай.
+    if [[ -f "$colors" ]]; then
+        skip "палитра Noctalia на месте"
     else
-        # kwriteconfig6 дописывает ключ в существующую группу, остальные
-        # ([Colors:*], [General], [KDE] contrast) не трогает — это важно,
-        # их потом перезапишет Noctalia.
-        run kwriteconfig6 --file "$kdeglobals" --group KDE --key color-scheme "$scheme"
-        done_msg "kdeglobals: [KDE] color-scheme=$scheme"
+        warn "нет ${colors/#$HOME/\~} — в Noctalia включи Settings → Templates → KColorScheme,
+       иначе Qt-приложения останутся в теме Breeze (светлой)"
     fi
 }
 
