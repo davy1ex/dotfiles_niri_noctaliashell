@@ -1,0 +1,11 @@
+[Unit]
+Description=Klipper DBus shim for non-Plasma compositors (Kiview support)
+After=graphical-session.target
+
+[Service]
+ExecStart=/usr/bin/python3 %h/.local/bin/klipper-shim.py
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=default.target

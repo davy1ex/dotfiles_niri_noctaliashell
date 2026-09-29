@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Service
+ServiceTypes=KonqPopupMenu/Plugin
+MimeType=all/allfiles;
+Actions=quickPreview;
+X-KDE-Priority=TopLevel
+
+[Desktop Action quickPreview]
+Name=Quick Preview
+Name[ru]=Быстрый просмотр
+Icon=io.github.nyre221.kiview
+Exec=flatpak run io.github.nyre221.kiview %F

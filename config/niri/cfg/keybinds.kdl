@@ -29,6 +29,16 @@ binds {
     // Please choose your own file manager.
     Mod+E                               hotkey-overlay-title="File Manager: Dolphin" { spawn "dolphin"; }
 
+    // ─── Quick Preview (macOS Quick Look) ───
+    // Враппер сам забирает выделение из Dolphin по DBus и открывает в Kiview.
+    // Напрямую через `kiview --shortcut` нельзя: ему нужен org.kde.klipper,
+    // которого нет вне Plasma (отсюда и было "The name is not activatable").
+    // Голый Space сюда вешать нельзя: бинды niri глобальные,
+    // он бы съедал пробел при печати во всех приложениях.
+    // Путь через ~ — niri раскрывает его только в начале имени программы,
+    // поэтому полный /home/<user> здесь ломал бы переезд на другую машину.
+    Mod+Space                           repeat=false hotkey-overlay-title="Quick Preview: kiview" { spawn "~/.local/bin/kiview-quicklook.sh"; }
+
     // ─── Media Controls ───
     XF86AudioRaiseVolume                allow-when-locked=true { spawn-sh "noctalia msg volume-up"; }
     XF86AudioLowerVolume                allow-when-locked=true { spawn-sh "noctalia msg volume-down"; }
