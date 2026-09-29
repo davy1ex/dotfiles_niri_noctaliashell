@@ -18,6 +18,7 @@ DO_RELOAD=1
 DO_PACKAGES=0
 DO_FLATPAK=0
 DO_APPIMAGE=0
+DO_SELFTEST=0
 
 if [[ -t 1 ]]; then
     C_OK=$'\033[32m'; C_WARN=$'\033[33m'; C_ERR=$'\033[31m'
@@ -58,6 +59,7 @@ usage() {
   -f, --flatpak     поставить приложения из packages-flatpak.txt
   -A, --appimage    поставить AppImage из packages-appimage.txt
   -a, --apps        и flatpak, и AppImage
+  -t, --self-test   чек-лист «всё ли развернулось», ничего не менять
   -h, --help        эта справка
 EOF
 }
@@ -70,6 +72,7 @@ while (( $# )); do
         -f|--flatpak)   DO_FLATPAK=1 ;;
         -A|--appimage)  DO_APPIMAGE=1 ;;
         -a|--apps)      DO_FLATPAK=1; DO_APPIMAGE=1 ;;
+        -t|--self-test) DO_SELFTEST=1 ;;
         -h|--help)      usage; exit 0 ;;
         *)              printf 'неизвестный аргумент: %s\n\n' "$1" >&2; usage >&2; exit 2 ;;
     esac
@@ -608,6 +611,299 @@ reload_portal() {
     fi
 }
 
+# ── самопроверка ───────────────────────────────────────────────────────
+# Печатает чек-лист «всё ли развернулось» и ничего не меняет. Годится и на
+# живой машине («ничего не сломалось»), и на только что поставленной.
+# Возвращает 1, если есть провалы: удобно для «развернул и проверил» в CI.
+CHECK_PASS=0
+CHECK_FAIL=0
+CHECK_SOFT=0
+
+check_ok()   { printf '  %s✓%s %s\n' "$C_OK" "$C_0" "$*"; CHECK_PASS=$((CHECK_PASS + 1)); }
+check_bad()  { printf '  %s✗%s %s\n' "$C_ERR" "$C_0" "$*"; CHECK_FAIL=$((CHECK_FAIL + 1)); }
+check_note() { printf '  %s·%s %s\n' "$C_SKIP" "$C_0" "$*"; CHECK_SOFT=$((CHECK_SOFT + 1)); }
+
+# «путь существует и указывает в репозиторий»
+check_link() {
+    local target="$1"
+    if [[ -L "$target" ]]; then
+        local real
+        real="$(readlink -f -- "$target" 2>/dev/null || true)"
+        if [[ "$real" == "$REPO"/* ]]; then
+            check_ok "${target/#$HOME/\~} → ${real#"$REPO"/}"
+        else
+            check_bad "${target/#$HOME/\~} — симлинк уходит из репозитория: $real"
+        fi
+    elif [[ -e "$target" ]]; then
+        check_bad "${target/#$HOME/\~} — обычный файл, а не симлинк в репозиторий"
+    else
+        check_bad "${target/#$HOME/\~} — нет вообще"
+    fi
+}
+
+self_test() {
+    printf '\n%sСамопроверка%s\n' "$C_B" "$C_0"
+    CHECK_PASS=0; CHECK_FAIL=0; CHECK_SOFT=0
+    local envname="org.gnome.desktop.interface"
+
+    # ── раскладка репозитория ────────────────────────────────────────
+    printf '\n%sРаскладка конфигов%s\n' "$C_B" "$C_0"
+    local entry
+    for entry in "${LINKS[@]}"; do
+        check_link "${entry##*|}"
+    done
+
+    # ── niri ─────────────────────────────────────────────────────────
+    printf '\n%sniri%s\n' "$C_B" "$C_0"
+    if command -v niri >/dev/null 2>&1; then
+        if niri validate >/dev/null 2>&1; then
+            check_ok "конфиг валиден"
+        else
+            check_bad "конфиг невалиден — niri молча работает на старых настройках"
+        fi
+        if niri msg --json version >/dev/null 2>&1; then
+            check_ok "композитор отвечает (конфиг уже применён)"
+        else
+            check_note "niri не запущен — применится при следующем входе"
+        fi
+    else
+        check_bad "niri не установлен"
+    fi
+
+    # niri msg keyboard-layouts печатает человеческий список («0 English (US)»),
+    # поэтому берём JSON-вариант и смотрим на names.
+    local layouts
+    layouts="$(niri msg --json keyboard-layouts 2>/dev/null || true)"
+    if [[ -z "$layouts" ]]; then
+        check_note "раскладки не проверяются: niri не отвечает"
+    elif [[ "$layouts" == *"English (US)"* && "$layouts" == *"Russian"* ]]; then
+        check_ok "раскладки us + ru на месте"
+    else
+        check_note "в списке раскладок нет пары us/ru: $layouts"
+    fi
+
+    # ── тема Qt/KDE ──────────────────────────────────────────────────
+    printf '\n%sТема Qt/KDE%s\n' "$C_B" "$C_0"
+    if grep -q 'QT_QPA_PLATFORMTHEME "kde"' "$REPO/config/niri/cfg/misc.kdl"; then
+        check_ok "QT_QPA_PLATFORMTHEME = kde в cfg/misc.kdl"
+    else
+        check_bad "в cfg/misc.kdl нет QT_QPA_PLATFORMTHEME \"kde\""
+    fi
+    if [[ -f "$HOME/.config/environment.d/98-qt-platformtheme.conf" ]] \
+        && grep -q '^QT_QPA_PLATFORMTHEME=kde$' "$HOME/.config/environment.d/98-qt-platformtheme.conf"; then
+        check_ok "переменная для systemd-юнитов на месте (портал)"
+    else
+        check_bad "нет ~/.config/environment.d/98-qt-platformtheme.conf с QT_QPA_PLATFORMTHEME=kde"
+    fi
+    if [[ -e /usr/lib/qt6/plugins/platformthemes/KDEPlasmaPlatformTheme6.so ]]; then
+        check_ok "плагин KDE-темы установлен (plasma-integration)"
+    else
+        check_bad "нет KDEPlasmaPlatformTheme6.so — поставь plasma-integration"
+    fi
+    if command -v kreadconfig6 >/dev/null 2>&1; then
+        local scheme wcolor
+        scheme="$(kreadconfig6 --file "$HOME/.config/kdeglobals" --group KDE --key color-scheme 2>/dev/null || true)"
+        wcolor="$(kreadconfig6 --file "$HOME/.config/kdeglobals" --group Colors:Window --key BackgroundNormal 2>/dev/null || true)"
+        if [[ "$scheme" == "noctalia" ]]; then
+            check_ok "kdeglobals: [KDE] color-scheme=noctalia"
+        else
+            check_bad "kdeglobals: color-scheme=${scheme:-<пусто>} — должно быть noctalia"
+        fi
+        if [[ -n "$wcolor" ]]; then
+            check_ok "kdeglobals отдан палитрой: Colors:Window = $wcolor"
+        else
+            check_bad "kdeglobals без Colors:Window — палитра не доехала"
+        fi
+    else
+        check_bad "нет kreadconfig6 (пакет kconfig)"
+    fi
+    if [[ -f "$HOME/.local/share/color-schemes/noctalia.colors" ]]; then
+        check_ok "палитра Noctalia на месте (шаблон kcolorscheme)"
+    else
+        check_bad "нет noctalia.colors — включи в Noctalia Settings → Templates → KColorScheme"
+    fi
+    local dfm
+    dfm="$(xdg-mime query default inode/directory 2>/dev/null || true)"
+    if [[ "$dfm" == "org.kde.dolphin.desktop" ]]; then
+        check_ok "файловый менеджер по умолчанию — Dolphin"
+    else
+        check_note "файловый менеджер: ${dfm:-<не задан>} (ожидался org.kde.dolphin.desktop)"
+    fi
+
+    # ── терминал ────────────────────────────────────────────────────
+    printf '\n%sAlacritty%s\n' "$C_B" "$C_0"
+    if grep -q 'import.*themes/noctalia.toml' "$HOME/.config/alacritty/alacritty.toml" 2>/dev/null; then
+        check_ok "alacritty импортирует тему Noctalia"
+    else
+        check_bad "в alacritty.toml нет import themes/noctalia.toml — тема не применится"
+    fi
+    if [[ -f "$HOME/.config/alacritty/themes/noctalia.toml" ]]; then
+        check_ok "файл темы терминала на месте"
+    else
+        check_bad "нет themes/noctalia.toml — включи Templates → Alacritty"
+    fi
+    if grep -q 'key = "с"' "$HOME/.config/alacritty/alacritty.toml" 2>/dev/null; then
+        check_ok "есть кириллические дубли биндов (работают в RU)"
+    else
+        check_note "кириллических дублей биндов нет — Ctrl+Shift+C в RU не сработает"
+    fi
+
+    # ── тема обзора воркспейсов ──────────────────────────────────────
+    printf '\n%sОбзор воркспейсов%s\n' "$C_B" "$C_0"
+    local ov="$HOME/.local/state/dotfiles/theme-overview.kdl"
+    if [[ -f "$ov" ]]; then
+        check_ok "файл темы обзора создан"
+        local backdrop window_hex
+        backdrop="$(grep -o 'backdrop-color "[^"]*"' "$ov" 2>/dev/null | head -1 | grep -o '#[0-9a-f]*')"
+        window_hex="$(kreadconfig6 --file "$HOME/.config/kdeglobals" --group Colors:Window --key BackgroundNormal 2>/dev/null | tr ',' ' ' | awk '{printf "#%02x%02x%02x", $1, $2, $3}')"
+        if [[ -n "$backdrop" && -n "$window_hex" && "$backdrop" == "${window_hex,,}" ]]; then
+            check_ok "цвет обзора совпадает с палитрой ($backdrop)"
+        elif [[ -n "$backdrop" ]]; then
+            check_note "цвет обзора $backdrop, а в kdeglobals $window_hex — запусти gtk3-theme-sync"
+        fi
+    else
+        check_note "файла темы обзора нет — запусти noctalia-overview-theme"
+    fi
+
+    # ── GTK3 ─────────────────────────────────────────────────────────
+    printf '\n%sGTK3%s\n' "$C_B" "$C_0"
+    if command -v gsettings >/dev/null 2>&1; then
+        local gscheme gtheme
+        gscheme="$(gsettings get "$envname" color-scheme 2>/dev/null | tr -d "'")"
+        gtheme="$(gsettings get "$envname" gtk-theme 2>/dev/null | tr -d "'")"
+        case "$gtheme" in
+            adw-gtk3 | adw-gtk3-dark | adw-gtk3-high-contrast | adw-gtk3-high-contrast-dark)
+                if [[ "$gscheme" == "prefer-dark" && "$gtheme" != "adw-gtk3-dark" ]] \
+                    || { [[ "$gscheme" != "prefer-dark" && "$gtheme" == "adw-gtk3-dark" ]]; }; then
+                    check_note "color-scheme=$gscheme, а gtk-theme=$gtheme — синхронизатор не сработал"
+                else
+                    check_ok "gtk-theme=$gtheme соответствует color-scheme=$gscheme"
+                fi
+                ;;
+            *)
+                check_note "gtk-theme=${gtheme:-<пусто>} — не adw-gtk3, синхронизатор её не тронет (твой выбор)"
+                ;;
+        esac
+    else
+        check_note "нет gsettings — GTK3 не проверяем"
+    fi
+
+    # ── Noctalia ─────────────────────────────────────────────────────
+    printf '\n%sNoctalia%s\n' "$C_B" "$C_0"
+    local live="$HOME/.local/state/noctalia/settings.toml"
+    if [[ -f "$live" ]]; then
+        check_ok "состояние на месте: ${live/#$HOME/\~}"
+        local want_tpl
+        for want_tpl in kcolorscheme alacritty; do
+            if grep -q "\"$want_tpl\"" "$live"; then
+                check_ok "шаблон $want_tpl включён"
+            else
+                check_bad "шаблон $want_tpl выключен — часть темы не работает"
+            fi
+        done
+        local n_enabled n_seed
+        n_enabled="$(grep -c '^\s*"[a-z0-9-]*/[a-z0-9-]*",\?$' "$live" 2>/dev/null || echo 0)"
+        n_seed="$(awk '/^\[plugins\]/{f=1;next} /^\[/{f=0} f' "$REPO/config/noctalia/settings.toml" | grep -c '"' || echo 0)"
+        if (( n_enabled >= n_seed )); then
+            check_ok "плагинов включено $n_enabled (в снимке $n_seed)"
+        else
+            check_note "плагинов включено $n_enabled, в снимке $n_seed — прогони install.sh ещё раз"
+        fi
+    else
+        check_bad "нет $live — запусти install.sh, он посеет состояние"
+    fi
+    if command -v noctalia >/dev/null 2>&1; then
+        if [[ -n "${WAYLAND_DISPLAY:-}" ]]; then
+            check_ok "noctalia=$(noctalia msg theme-mode-get 2>/dev/null || echo '?')"
+        else
+            check_note "noctalia не запущена"
+        fi
+    fi
+
+    # ── приложения ───────────────────────────────────────────────────
+    printf '\n%sПриложения%s\n' "$C_B" "$C_0"
+    local id
+    if command -v flatpak >/dev/null 2>&1; then
+        local -a missing=()
+        while IFS= read -r id; do
+            flatpak info "$id" >/dev/null 2>&1 || missing+=("$id")
+        done < <(read_list "$REPO/packages-flatpak.txt")
+        if (( ! ${#missing[@]} )); then
+            check_ok "все flatpak из списка установлены"
+        else
+            check_note "нет flatpak: ${missing[*]} (./install.sh -f)"
+        fi
+    else
+        check_note "flatpak не установлен"
+    fi
+
+    if [[ -d "$HOME/AppImages" ]]; then
+        local -a no_app=() no_desk=()
+        while IFS= read -r line; do
+            IFS='|' read -r id _ver _name _wm _mt _args _url _page <<<"$line"
+            [[ -f "$HOME/AppImages/$id.appimage" ]] || no_app+=("$id")
+            [[ -f "$HOME/.local/share/applications/$id.desktop" ]] || no_desk+=("$id")
+        done < <(read_list "$REPO/packages-appimage.txt")
+        if (( ! ${#no_app[@]} )); then
+            check_ok "все AppImage на месте"
+        else
+            check_note "нет файлов: ${no_app[*]} (./install.sh -A)"
+        fi
+        if (( ! ${#no_desk[@]} )); then
+            check_ok "у всех AppImage есть .desktop"
+        else
+            check_note "нет .desktop: ${no_desk[*]}"
+        fi
+    else
+        check_note "каталога ~/AppImages нет"
+    fi
+
+    # ── пакеты, без которых ничего не работает ───────────────────────
+    printf '\n%sКлючевые пакеты%s\n' "$C_B" "$C_0"
+    if command -v pacman >/dev/null 2>&1; then
+        local -a want=() absent=()
+        want=(cachyos-niri-noctalia dolphin plasma-integration xdg-desktop-portal-kde
+              kconfig wl-clipboard jq qt6-tools python-gobject otf-hasklig-nerd)
+        local pkg
+        for pkg in "${want[@]}"; do
+            pacman -Q "$pkg" >/dev/null 2>&1 || absent+=("$pkg")
+        done
+        if (( ! ${#absent[@]} )); then
+            check_ok "все ${#want[@]} ключевых пакетов на месте"
+        else
+            check_note "не установлены: ${absent[*]} (./install.sh -p)"
+        fi
+    else
+        check_note "нет pacman — пакеты не проверяем"
+    fi
+
+    # Не grep -q: под pipefail он закрывает пайп после первого совпадения,
+    # fc-list умирает от SIGPIPE и проверка врёт в минус. Считаем строки.
+    local hasklug_n
+    hasklug_n="$(fc-list 2>/dev/null | grep -ci hasklug || true)"
+    if (( hasklug_n > 0 )); then
+        check_ok "шрифт панели Hasklug Nerd Font ($hasklug_n начертаний)"
+    else
+        check_note "нет Hasklug Nerd Font — иконки панели будут квадратами"
+    fi
+
+    # ── репозиторий ──────────────────────────────────────────────────
+    printf '\n%sРепозиторий%s\n' "$C_B" "$C_0"
+    if command -v git >/dev/null 2>&1 && git -C "$REPO" rev-parse --git-dir >/dev/null 2>&1; then
+        local dirty
+        dirty="$(git -C "$REPO" status --porcelain | wc -l)"
+        if (( dirty == 0 )); then
+            check_ok "рабочее дерево чистое, всё сохранено"
+        else
+            check_note "незакоммичено изменений: $dirty — см. git -C $REPO status"
+        fi
+    fi
+
+    printf '\n%sИтого:%s %d ок, %d с предупреждением, %d провалено\n' \
+        "$C_B" "$C_0" "$CHECK_PASS" "$CHECK_SOFT" "$CHECK_FAIL"
+    (( CHECK_FAIL == 0 ))
+}
+
 # ── main ───────────────────────────────────────────────────────────────
 printf '%s%s%s  →  %s\n' "$C_B" "${REPO/#$HOME/\~}" "$C_0" "$REPO"
 
@@ -616,6 +912,11 @@ if (( DRY_RUN )); then
 else
     BACKUP_DIR="$BACKUP_ROOT/$(date +%Y%m%d-%H%M%S)"
     mkdir -p "$BACKUP_DIR"
+fi
+
+if (( DO_SELFTEST )); then
+    self_test || exit 1
+    exit 0
 fi
 
 printf '\n%sРаскладка%s\n' "$C_B" "$C_0"
