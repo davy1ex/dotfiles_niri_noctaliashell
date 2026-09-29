@@ -21,6 +21,15 @@ xdg-desktop-portal-gtk
 xdg-desktop-portal-kde      # бэкенд, рисующий диалоги «открыть/сохранить»
 wl-clipboard
 
+# ── Quick Look в Dolphin (Mod+Space → Kiview, см. README) ─────────────
+# Сам Kiview — flatpak (install.sh ставит его сам в fixups, здесь его нет).
+# flatpak нужен ему же; jq + qt6-tools (qdbus6) — врапперу kiview-quicklook.sh,
+# python-gobject — шиму org.kde.klipper (klipper-shim.py).
+flatpak
+jq
+qt6-tools
+python-gobject
+
 # ── терминал, который спавнится с горячих клавиш ───────────────────────
 alacritty
 
@@ -38,6 +47,10 @@ ttf-liberation
 # ── nerd-шрифты для иконок в терминале ────────────────────────────────
 # Любой один. Список — что стоит сейчас; возьми свой, если отличается.
 ttf-meslo-nerd
+# Hasklug — шрифт самой панели Noctalia (см. снимок config/noctalia/settings.toml,
+# [bar.default] font_family). Без него панель рисуется с квадратами вместо
+# иконок. Пакет называется именно так — с лишней «i».
+otf-hasklig-nerd
 
 # ── файловый менеджер (Mod+E в cfg/keybinds.kdl) и браузер ────────────
 dolphin

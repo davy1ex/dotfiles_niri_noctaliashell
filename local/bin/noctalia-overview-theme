@@ -1,0 +1,82 @@
+#!/usr/bin/env bash
+#
+# Перекрашивает обзор воркспейсов niri под текущую тему Noctalia.
+#
+# niri не умеет менять цвета по IPC, а в конфиге можно только статику. Поэтому
+# скрипт пишет маленький файл, который подключён через `include optional=true`
+# в config.kdl, — а niri сам перечитывает конфиг, когда файл меняется.
+#
+# Источник цветов — ~/.config/kdeglobals: Noctalia переписывает его при каждой
+# смене темы (шаблон kcolorscheme). Отдельного сигнала «тема поменялась» у
+# Noctalia нет, а kdeglobals для этого подходит идеально.
+#
+# Файл намеренно лежит вне репозитория: его содержимое меняется при каждой
+# смене темы и засоряло бы git.
+#
+#   Запуск вручную:  noctalia-overview-theme
+#   Срабатывает сам: по .path-юниту на kdeglobals и на палитру Noctalia
+set -euo pipefail
+
+STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/dotfiles"
+OUT="$STATE_DIR/theme-overview.kdl"
+KDEGLOBALS="${XDG_CONFIG_HOME:-$HOME/.config}/kdeglobals"
+
+# Значения из цветовой схемы KDE (её пишет Noctalia). Complementary — фон
+# воркспая, Window — чуть темнее: из него получается подложка обзора.
+# В светлой палитре Complementary и View совпадают, поэтому View не берём.
+read_color() {
+    local group="$1" key="$2" fallback="$3" raw
+    raw="$(kreadconfig6 --file "$KDEGLOBALS" --group "$group" --key "$key" 2>/dev/null || true)"
+    if [[ "$raw" =~ ^[0-9]+,[0-9]+,[0-9]+$ ]]; then
+        local IFS=,
+        # shellcheck disable=SC2086
+        printf '#%02x%02x%02x' $raw
+    else
+        printf '%s' "$fallback"
+    fi
+}
+
+if ! command -v kreadconfig6 >/dev/null 2>&1; then
+    printf 'нет kreadconfig6 — поставь kconfig\n' >&2
+    exit 0                       # не падаем: systemd-юнит не должен крутить ошибку
+fi
+
+if [[ ! -f "$KDEGLOBALS" ]]; then
+    # Noctalia ещё не запускалась: нечего красить, но и ругаться незачем.
+    exit 0
+fi
+
+backdrop="$(read_color 'Colors:Window' 'BackgroundNormal' '#262626')"
+# Тень не тематизируем: это чёрный с альфой и в обеих схемах он чёрный.
+# Тематизировать нечего, а вот «тень по цвету фона» в светлой схеме
+# невидима — на этом уже обожглись, когда Complementary и View совпали.
+shadow='#00000070'
+
+mkdir -p "$STATE_DIR"
+tmp="$(mktemp "$OUT.XXXXXX")"
+trap 'rm -f "$tmp"' EXIT
+
+cat >"$tmp" <<EOF
+// Сгенерировано $(basename "$0") — правь скрипт, а не этот файл.
+// Источник: ~/.config/kdeglobals, который перезаписывает Noctalia.
+
+overview {
+    // Подложка под воркспаями.
+    backdrop-color "$backdrop"
+
+    workspace-shadow {
+        softness 40
+        spread 10
+        offset x=0 y=10
+        color "$shadow"
+    }
+}
+EOF
+
+# Пишем только при реальном изменении: niri перечитывает конфиг на любое
+# событие по файлу, лишние перезагрузки ни к чему.
+if [[ -f "$OUT" ]] && cmp -s "$tmp" "$OUT"; then
+    exit 0
+fi
+mv "$tmp" "$OUT"
+trap - EXIT

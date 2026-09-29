@@ -1,0 +1,23 @@
+# Приложения из AppImage. Ставятся в ~/AppImages, .desktop и иконка
+# генерируются скриптом (иконки лежат в local/share/appimages-icons/).
+#
+# Установка:  ./install.sh -A
+#
+# Формат (8 полей, разделитель |):
+#   1. id          — имя файла <id>.appimage и <id>.desktop
+#   2. версия      — на ней снят .desktop (X-AppImage-Version)
+#   3. имя         — Name= в меню
+#   4. wmclass     — StartupWMClass (пусто = -)
+#   5. mimetype    — через ";" (пусто = -)
+#   6. аргументы   — что дописать в Exec до %U (пусто = -)
+#   7. прямая ссылка — качать автоматически; "-" = ссылка нестабильная
+#   8. страница    — куда идти руками, если ссылка "-"
+#
+# Ссылки на "-" (TickTick, LM Studio, LM Studio Hub) отдаются вендорами с
+# подменой URL, поэтому автоматом не качаются — install.sh напечатает ссылку.
+
+obsidian|1.13.7|Obsidian|md.obsidian.Obsidian|x-scheme-handler/obsidian;|--no-sandbox|https://github.com/obsidianmd/obsidian-releases/releases/download/v1.13.7/obsidian-1.13.7.AppImage|https://obsidian.md/download
+localsend|1.18.2|LocalSend|-|-|-|https://github.com/localsend/localsend/releases/download/v1.18.2/LocalSend-1.18.2-linux-x86-64.AppImage|https://localsend.org/#download
+ticktick|8.0.20|TickTick|-|-|--no-sandbox|-|https://ticktick.com/download/linux
+lmstudio|0.4.25|LM Studio|-|-|-|-|https://lmstudio.ai/download
+bionic|1.1.6|LM Studio Hub|-|-|-|-|https://lmstudio.ai/hub

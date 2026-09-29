@@ -1,0 +1,11 @@
+[Unit]
+Description=Перекрасить обзор воркспейсов niri под тему Noctalia
+Documentation=file:%h/dotfiles/docs/portability.md
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/bin/noctalia-overview-theme
+# Скрипт и сам переживает отсутствие kdeglobals; молчаливый режим, чтобы
+# unit не сыпал ошибками в журнал сессии на пустой машине.
+StandardOutput=null
+StandardError=null

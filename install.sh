@@ -16,6 +16,8 @@ BACKUP_ROOT="${XDG_DATA_HOME:-$HOME/.local/share}/dotfiles-backup"
 DRY_RUN=0
 DO_RELOAD=1
 DO_PACKAGES=0
+DO_FLATPAK=0
+DO_APPIMAGE=0
 
 if [[ -t 1 ]]; then
     C_OK=$'\033[32m'; C_WARN=$'\033[33m'; C_ERR=$'\033[31m'
@@ -53,6 +55,9 @@ usage() {
   -n, --dry-run     показать действия, ничего не менять
   -N, --no-reload   не перезагружать niri и noctalia после раскладки
   -p, --packages    поставить пакеты из packages.txt (нужен pacman + sudo)
+  -f, --flatpak     поставить приложения из packages-flatpak.txt
+  -A, --appimage    поставить AppImage из packages-appimage.txt
+  -a, --apps        и flatpak, и AppImage
   -h, --help        эта справка
 EOF
 }
@@ -62,6 +67,9 @@ while (( $# )); do
         -n|--dry-run)   DRY_RUN=1 ;;
         -N|--no-reload) DO_RELOAD=0 ;;
         -p|--packages)  DO_PACKAGES=1 ;;
+        -f|--flatpak)   DO_FLATPAK=1 ;;
+        -A|--appimage)  DO_APPIMAGE=1 ;;
+        -a|--apps)      DO_FLATPAK=1; DO_APPIMAGE=1 ;;
         -h|--help)      usage; exit 0 ;;
         *)              printf 'неизвестный аргумент: %s\n\n' "$1" >&2; usage >&2; exit 2 ;;
     esac
@@ -78,6 +86,13 @@ LINKS=(
     "config/environment.d/98-qt-platformtheme.conf|$HOME/.config/environment.d/98-qt-platformtheme.conf"
     "local/share/noctalia/plugins/niri-windows|$HOME/.local/share/noctalia/plugins/niri-windows"
     "local/bin/toggle-kb-layout|$HOME/.local/bin/toggle-kb-layout"
+    "local/bin/noctalia-overview-theme|$HOME/.local/bin/noctalia-overview-theme"
+    "local/bin/kiview-quicklook.sh|$HOME/.local/bin/kiview-quicklook.sh"
+    "local/bin/klipper-shim.py|$HOME/.local/bin/klipper-shim.py"
+    "local/share/kio/servicemenus/kiview.desktop|$HOME/.local/share/kio/servicemenus/kiview.desktop"
+    "config/systemd/user/klipper-shim.service|$HOME/.config/systemd/user/klipper-shim.service"
+    "config/systemd/user/noctalia-overview-theme.service|$HOME/.config/systemd/user/noctalia-overview-theme.service"
+    "config/systemd/user/noctalia-overview-theme.path|$HOME/.config/systemd/user/noctalia-overview-theme.path"
 )
 
 BACKUP_DIR=""
@@ -206,11 +221,63 @@ fixups() {
         warn "нет ${alc_theme/#$HOME/\~} — в Noctalia включи Settings → Templates → Alacritty,
        иначе терминал не переключится между светлой и тёмной"
     fi
+
+    # Quick Look (Mod+Space в Dolphin): Kiview + шим Klipper.
+    # Kiview — flatpak, в packages.txt его нет (там только pacman).
+    if command -v flatpak >/dev/null 2>&1; then
+        if flatpak info io.github.nyre221.kiview >/dev/null 2>&1; then
+            skip "flatpak: io.github.nyre221.kiview уже стоит"
+        else
+            run flatpak install -y flathub io.github.nyre221.kiview \
+                && done_msg "flatpak: io.github.nyre221.kiview поставлен" \
+                || warn "не смог поставить Kiview — Quick Look не заработает"
+        fi
+    else
+        warn "нет flatpak — Kiview (Quick Look) не ставлю"
+    fi
+
+    # Пункт «Quick Preview» в правом клике Dolphin подхватывается только
+    # после перестройки kbuildsycoca.
+    if command -v kbuildsycoca6 >/dev/null 2>&1; then
+        run kbuildsycoca6 >/dev/null 2>&1 \
+            && done_msg "kbuildsycoca: меню Dolphin обновлено" \
+            || warn "kbuildsycoca6 упал — пункт Quick Preview может не появиться"
+    else
+        warn "нет kbuildsycoca6 — пункт Quick Preview в Dolphin не подхватится"
+    fi
+
+    # Шим org.kde.klipper для Kiview (вне Plasma Klipper'а нет, без шима
+    # Kiview падает с «The name is not activatable»). Юнит уже лежит
+    # симлинком из репо, здесь только daemon-reload + enable.
+    if command -v systemctl >/dev/null 2>&1; then
+        run systemctl --user daemon-reload
+        if systemctl --user is-enabled klipper-shim.service >/dev/null 2>&1; then
+            skip "klipper-shim уже включён"
+        else
+            run systemctl --user enable --now klipper-shim.service \
+                && done_msg "klipper-shim включён и запущен" \
+                || warn "не смог включить klipper-shim — Quick Look не заработает"
+        fi
+    else
+        warn "нет systemctl — klipper-shim не включаю"
+    fi
 }
 
 # noctalia msg печатает "ok"/"ok (exporting in background)" в stdout —
 # гасим, оставляя stderr, чтобы ошибки были видны.
 noctalia_q() { run noctalia msg "$@" >/dev/null; }
+
+# Разбирает список пакетов: убирает комментарий и пробелы, пропускает пустые.
+# Общий для packages.txt, packages-flatpak.txt и packages-appimage.txt.
+read_list() {
+    local line
+    [[ -f "$1" ]] || return 0
+    while IFS= read -r line; do
+        line="${line%%#*}"
+        line="$(printf '%s' "$line" | tr -d '[:space:]')"
+        [[ -n "$line" ]] && printf '%s\n' "$line"
+    done < "$1"
+}
 
 # ── пакеты ─────────────────────────────────────────────────────────────
 install_packages() {
@@ -220,12 +287,7 @@ install_packages() {
         warn "нет pacman — пакеты не ставлю (список в packages.txt)"; return 0; }
 
     local -a pkgs=()
-    local line
-    while IFS= read -r line; do
-        line="${line%%#*}"                     # убрать комментарий
-        line="$(printf '%s' "$line" | tr -d '[:space:]')"
-        [[ -n "$line" ]] && pkgs+=("$line")
-    done < "$list"
+    mapfile -t pkgs < <(read_list "$list")
 
     (( ${#pkgs[@]} )) || { warn "список пакетов пуст"; return 0; }
 
@@ -240,6 +302,181 @@ install_packages() {
     else
         printf '  %s·%s пропущено (включи флагом -p)\n' "$C_SKIP" "$C_0"
     fi
+}
+
+# ── приложения не из pacman ────────────────────────────────────────────
+install_flatpak() {
+    local list="$REPO/packages-flatpak.txt"
+    if ! command -v flatpak >/dev/null 2>&1; then
+        warn "нет flatpak — пропускаю (список в packages-flatpak.txt)"
+        return 0
+    fi
+
+    local -a ids=()
+    mapfile -t ids < <(read_list "$list")
+    (( ${#ids[@]} )) || { skip "список flatpak пуст"; return 0; }
+
+    printf '\n%sFlatpak%s (%d): %s\n' "$C_B" "$C_0" "${#ids[@]}" "${ids[*]}"
+    local id
+    for id in "${ids[@]}"; do
+        if flatpak info "$id" >/dev/null 2>&1; then
+            skip "уже стоит: $id"
+        elif (( DRY_RUN )); then
+            printf '  %s[dry-run]%s flatpak install -y flathub %s\n' "$C_SKIP" "$C_0" "$id"
+        elif flatpak install -y flathub "$id" >/dev/null 2>&1; then
+            ok "$id"
+        else
+            warn "не поставился: $id"
+        fi
+    done
+}
+
+# AppImage: файла нет в pacman, поэтому ставим файлом + генерируем .desktop
+# и иконку. Список — packages-appimage.txt (формат описан в шапке файла).
+install_appimages() {
+    local list="$REPO/packages-appimage.txt"
+    local icons="$REPO/local/share/appimages-icons"
+    local dir="$HOME/AppImages"
+    local applications="$HOME/.local/share/applications"
+
+    if [[ ! -f "$list" ]]; then
+        warn "нет packages-appimage.txt, пропускаю"
+        return 0
+    fi
+
+    printf '\n%sAppImage%s\n' "$C_B" "$C_0"
+    local line
+    while IFS= read -r line; do
+        IFS='|' read -r id version name wmclass mimetype args url page <<<"$line"
+        [[ "$wmclass" == "-" ]] && wmclass=""
+        [[ "$mimetype" == "-" ]] && mimetype=""
+        [[ "$args" == "-" ]] && args=""
+
+        local appimage="$dir/$id.appimage"
+
+        if [[ -f "$appimage" ]]; then
+            skip "уже есть: ${appimage/#$HOME/\~}"
+        elif [[ "$url" == "-" ]]; then
+            # Вендор отдаёт AppImage по подменяемому URL — качать нечем.
+            warn "$name $version: качай вручную → $page"
+        elif (( DRY_RUN )); then
+            printf '  %s[dry-run]%s curl -fL -o %s %s\n' "$C_SKIP" "$C_0" \
+                "${appimage/#$HOME/\~}" "$url"
+        elif ! command -v curl >/dev/null 2>&1; then
+            warn "нет curl — $name не скачать, иди вручную: $page"
+        else
+            mkdir -p "$dir"
+            printf '  %s↓%s %s %s\n' "$C_SKIP" "$C_0" "$name" "$version"
+            if curl -fL --progress-bar -o "$appimage.part" "$url" 2>/dev/null; then
+                mv "$appimage.part" "$appimage"
+                ok "${appimage/#$HOME/\~}"
+            else
+                rm -f "$appimage.part"
+                warn "не скачался $name: $url"
+            fi
+        fi
+
+        # Иконка и .desktop генерируем всегда: даже для уже скачанного файла
+        # на новой машине их может не быть.
+        if [[ -f "$icons/$id" ]]; then
+            mkdir -p "$dir/.icons"
+            if [[ ! -f "$dir/.icons/$id" ]] || (( DRY_RUN )); then
+                if (( DRY_RUN )); then
+                    printf '  %s[dry-run]%s иконка → %s\n' "$C_SKIP" "$C_0" "${dir/#$HOME/\~}/.icons/$id"
+                else
+                    cp "$icons/$id" "$dir/.icons/$id" && done_msg "иконка: .icons/$id"
+                fi
+            fi
+        else
+            warn "нет иконки для $name в local/share/appimages-icons/$id"
+        fi
+
+        # Свой .desktop не трогаем, если он уже есть: приложения на Electron
+        # сами пишут богатые файлы (Comment, StartupWMClass). Наш генератор —
+        # запасной вариант для чистой машины.
+        if [[ -f "$applications/$id.desktop" ]] && ! (( DRY_RUN )); then
+            skip ".desktop уже есть: ${applications/#$HOME/\~}/$id.desktop"
+            continue
+        fi
+        if (( DRY_RUN )); then
+            printf '  %s[dry-run]%s .desktop → %s\n' "$C_SKIP" "$C_0" "${applications/#$HOME/\~}/$id.desktop"
+            continue
+        fi
+        mkdir -p "$applications"
+        {
+            printf '[Desktop Entry]\n'
+            printf 'Type=Application\n'
+            printf 'Name=%s\n' "$name"
+            printf 'Icon=%s/.icons/%s\n' "$dir" "$id"
+            printf 'TryExec=%s\n' "$appimage"
+            printf 'Exec=env DESKTOPINTEGRATION=1 %s %s%%U\n' "$appimage" "${args:+$args }"
+            printf 'Terminal=false\n'
+            [[ -n "$wmclass" ]] && printf 'StartupWMClass=%s\n' "$wmclass"
+            printf 'Categories=Office;\n'
+            [[ -n "$mimetype" ]] && printf 'MimeType=%s\n' "$mimetype"
+            printf 'X-AppImage-Version=%s\n' "$version"
+            printf 'X-AppImage-Name=%s\n' "$name"
+        } >"$applications/$id.desktop"
+        ok ".desktop: ${applications/#$HOME/\~}/$id.desktop"
+    done < <(read_list "$list")
+
+    if command -v update-desktop-database >/dev/null 2>&1; then
+        run update-desktop-database "$applications" >/dev/null
+    fi
+}
+
+# Состояние Noctalia (панель, виджеты, плагины) живёт в
+# ~/.local/state/noctalia/settings.toml и перекрывает config/noctalia/config.toml,
+# поэтому без него переезд не воспроизводит вид и плагины. Посев — только если
+# файла нет: живое состояние не затираем никогда.
+seed_noctalia() {
+    local seed="$REPO/config/noctalia/settings.toml"
+    local live="${XDG_STATE_HOME:-$HOME/.local/state}/noctalia/settings.toml"
+
+    printf '\n%sСостояние Noctalia%s\n' "$C_B" "$C_0"
+
+    if [[ ! -f "$seed" ]]; then
+        skip "нет снимка config/noctalia/settings.toml"
+        return 0
+    fi
+
+    if [[ -f "$live" ]]; then
+        skip "settings.toml на месте — не трогаю (обновить: noctalia config export > ~/dotfiles/config/noctalia/settings.toml)"
+    elif (( DRY_RUN )); then
+        printf '  %s[dry-run]%s посев %s → %s\n' "$C_SKIP" "$C_0" \
+            "config/noctalia/settings.toml" "${live/#$HOME/\~}"
+    else
+        mkdir -p "$(dirname -- "$live")"
+        cp "$seed" "$live"
+        ok "посеял ${live/#$HOME/\~}"
+    fi
+
+    enable_noctalia_plugins "$seed"
+}
+
+# Плагины Noctalia тянутся с noctalia.dev по id, поэтому восстанавливаются
+# одной командой. Исключение — локальный davy1ex/niri-windows: он лежит
+# симлинком из репо и в каталоге не появляется.
+enable_noctalia_plugins() {
+    local seed="${1:-$REPO/config/noctalia/settings.toml}"
+    command -v noctalia >/dev/null 2>&1 || { skip "noctalia не установлена — плагины не включаю"; return 0; }
+    if [[ -z "${WAYLAND_DISPLAY:-}" ]]; then
+        skip "noctalia не запущена — плагины включатся при следующем входе"
+        return 0
+    fi
+
+    local -a ids=()
+    mapfile -t ids < <(awk '/^\[plugins\]/{f=1;next} /^\[/{f=0} f' "$seed" | grep -o '"[^"]*"' | tr -d '"')
+    (( ${#ids[@]} )) || { skip "в снимке нет списка плагинов"; return 0; }
+
+    local id
+    for id in "${ids[@]}"; do
+        if noctalia_q plugins enable "$id"; then
+            done_msg "плагин: $id"
+        else
+            warn "не включился плагин $id — включи вручную (нет сети или нет в каталоге)"
+        fi
+    done
 }
 
 # ── перезагрузка ───────────────────────────────────────────────────────
@@ -282,6 +519,22 @@ reload_session() {
         reload_portal
     else
         skip "портал не перезапускаю (нет systemctl или WAYLAND_DISPLAY)"
+    fi
+
+    # Обзор воркспейсов красится скриптом под текущую тему Noctalia.
+    # Юниты уже симлинками из репо, включаем .path — он и слушает kdeglobals.
+    if command -v systemctl >/dev/null 2>&1; then
+        run systemctl --user daemon-reload
+        if systemctl --user is-enabled noctalia-overview-theme.path >/dev/null 2>&1; then
+            run systemctl --user restart noctalia-overview-theme.path 2>/dev/null || true
+            skip "noctalia-overview-theme.path уже включён"
+        else
+            run systemctl --user enable --now noctalia-overview-theme.path \
+                && done_msg "тема обзора воркспейсов: слежу за kdeglobals" \
+                || warn "не смог включить noctalia-overview-theme.path — обзор останется серым"
+        fi
+    else
+        warn "нет systemctl — тему обзора воркспейсов не включаю"
     fi
 
     skip "уже открытые терминалы держат прежний QT_QPA_PLATFORMTHEME — перезапусти их"
@@ -350,6 +603,24 @@ fi
 if (( DO_PACKAGES )); then
     printf '\n%sПакеты%s\n' "$C_B" "$C_0"
     install_packages
+fi
+
+# Состояние Noctalia сеется всегда (идемпотентно: живой файл не трогаем) —
+# без него панель, виджеты и плагины на новой машине будут дефолтными.
+seed_noctalia
+
+if (( DO_FLATPAK )); then
+    install_flatpak
+else
+    printf '\n%sFlatpak%s\n' "$C_B" "$C_0"
+    printf '  %s·%s пропущено (включи флагом -f)\n' "$C_SKIP" "$C_0"
+fi
+
+if (( DO_APPIMAGE )); then
+    install_appimages
+else
+    printf '\n%sAppImage%s\n' "$C_B" "$C_0"
+    printf '  %s·%s пропущено (включи флагом -A)\n' "$C_SKIP" "$C_0"
 fi
 
 fixups

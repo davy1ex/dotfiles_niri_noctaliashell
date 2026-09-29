@@ -7,3 +7,10 @@ include "./cfg/layout.kdl"
 include "./cfg/rules.kdl"
 include "./cfg/misc.kdl"
 include "./cfg/workspaces.kdl"
+
+// Цвет обзора воркспейсов под текущую тему Noctalia. Файл генерирует
+// ~/.local/bin/noctalia-overview-theme, niri сам перечитывает конфиг при его
+// изменении. optional=true — на машине без скрипта конфиг остаётся валидным.
+// Лежит вне репозитория намеренно: содержимое меняется на каждый переключатель
+// темы и засоряло бы git.
+include optional=true "~/.local/state/dotfiles/theme-overview.kdl"

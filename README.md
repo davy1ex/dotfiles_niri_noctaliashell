@@ -7,16 +7,21 @@
 ```
 ~/dotfiles/
 ├── install.sh              раскладка конфигов на машину
-├── packages.txt            пакеты для чистой установки
+├── packages.txt            пакеты pacman для чистой установки
+├── packages-flatpak.txt    приложения из flatpak
+├── packages-appimage.txt   приложения из AppImage (+ иконки в local/share/)
 ├── config/
 │   ├── niri/               → ~/.config/niri
 │   ├── noctalia/           → ~/.config/noctalia
 │   ├── alacritty/          → ~/.config/alacritty  (пофайлово)
+│   ├── systemd/user/       → ~/.config/systemd/user  (пофайлово)
 │   └── environment.d/      → ~/.config/environment.d  (пофайлово)
 ├── local/
 │   ├── bin/                → ~/.local/bin  (пофайлово)
 │   └── share/noctalia/plugins/niri-windows/  → ~/.local/share/noctalia/plugins/
-└── docs/                   заметки об окружении
+└── docs/
+    ├── portability.md      ← подробный разбор переезда
+    └── dotfiles-push.*     автопуш по таймеру
 ```
 
 ## Переезд на новую ОС
@@ -24,15 +29,21 @@
 ```bash
 git clone <url> ~/dotfiles
 cd ~/dotfiles
-./install.sh -p        # -p = ещё и поставить пакеты из packages.txt
+./install.sh -p -a     # -p = pacman, -a = flatpak + AppImage
 ```
 
 Скрипт идемпотентен: существующие файлы не перезаписывает молча, а сначала
 кладёт в `~/.local/share/dotfiles-backup/<дата-время>/`. Повторный запуск
-ничего не ломает.
+ничего не ломает. Живое состояние Noctalia и уже скачанные AppImage тоже
+не трогает.
 
 Опции: `-n` (dry-run, показать что будет), `-N` (не перезагружать сессию),
-`-p` (поставить пакеты), `-h`.
+`-p` (пакеты из `packages.txt`), `-f` (flatpak), `-A` (AppImage),
+`-a` (flatpak + AppImage), `-h`.
+
+**Подробный разбор: [`docs/portability.md`](docs/portability.md)** — слои
+установки, кто откуда берёт цвет, плагины Noctalia, инвентарь приложений и
+шпаргалка проверки.
 
 ### Первый вход: что доделать руками
 
@@ -42,18 +53,23 @@ cd ~/dotfiles
    `~/.config/alacritty/themes/noctalia.toml` (тема терминала). Без них
    Dolphin остаётся в Breeze, а терминал — на дефолтной палитре;
    `install.sh` об этом предупредит и его можно перезапустить после.
-2. **Создать сессию niri** (WM-сессия / tty). `packages.txt` ставит бинари,
+2. **Скачать AppImage без стабильных ссылок**: TickTick, LM Studio,
+   LM Studio Hub. Ссылки — в `packages-appimage.txt` и в
+   [`docs/portability.md`](docs/portability.md); `install.sh -A` их напечатает.
+3. **Создать сессию niri** (WM-сессия / tty). `packages.txt` ставит бинари,
    но не настраивает автозапуск — это зависит от того, чем ты входишь.
    Сама сессия — `niri.desktop` из пакета `niri`.
-3. **Перезапустить открытые терминалы**: они держат прежнее окружение.
+4. **Перезапустить открытые терминалы**: они держат прежнее окружение.
 
 Проверить, что всё встало:
 
 ```bash
 niri validate                                        # config is valid
 kreadconfig6 --file ~/.config/kdeglobals --group KDE --key color-scheme   # noctalia
-kreadconfig6 --file ~/.config/kdeglobals --group Colors:Window --key BackgroundNormal
 ls /usr/lib/qt6/plugins/platformthemes/KDEPlasmaPlatformTheme6.so        # тема Qt есть
+ls ~/.config/alacritty/themes/noctalia.toml                               # тема терминала
+cat ~/.local/state/dotfiles/theme-overview.kdl                            # тема обзора niri
+systemctl --user is-active noctalia-overview-theme.path                   # слушает тему
 xdg-mime query default inode/directory               # org.kde.dolphin.desktop
 ```
 
@@ -83,26 +99,23 @@ Nautilus из списка убран: `Mod+E` открывает Dolphin, и `i
 светлеют никогда. Лечится либо своим `gsettings set`, либо синхронизацией с
 `color-scheme` — пока не сделано.
 
-### Чего в репозитории нет
+### Состояние Noctalia — теперь в репозитории
 
-**Состояние Noctalia (`~/.local/state/noctalia/settings.toml`) не версионируется.**
-В её конфиг-стеке `settings.toml` перекрывает `config/noctalia/config.toml`
-(это видно и в живой панели: там ram/cpu/preview из `settings.toml`, а не
-layout из `config.toml`). То есть на чистой машине:
+Раньше панель, виджеты и плагины жили только в
+`~/.local/state/noctalia/settings.toml` и перекрывали `config/noctalia/config.toml`,
+из-за чего переезд не воспроизводил вид. Сейчас есть снимок
+`config/noctalia/settings.toml` (`noctalia config export`), который `install.sh`
+сеет на месте — **только если файла нет**, живое состояние не трогает.
 
-- панель, виджеты, плагины, тема и список шаблонов будут дефолтными;
-- `config/noctalia/config.toml` из репо применится только к тем ключам, которых
-  нет в `settings.toml` (на практике — почти ни к каким).
-
-Снимок текущего состояния снять можно так:
+Обновить снимок после правок в Noctalia:
 
 ```bash
-noctalia config export            # merged: config-dir *.toml + settings.toml
+noctalia config export > ~/dotfiles/config/noctalia/settings.toml
 ```
 
-Если хочется, чтобы переезд воспроизводил панель и тему один в один —
-скажи, добавлю в репо пресет и посев в `install.sh`. Пока этого нет, смотри
-на первый пункт выше.
+Машинно-зависимое внутри снимка (координаты виджетов, имена мониторов
+`eDP-1`/`HDMI-A-1`, пресет `One Dark Two`) помечено в шапке файла и на другой
+машине безвредно.
 
 ## Сохранение правок
 
@@ -151,6 +164,10 @@ systemctl --user enable --now dotfiles-push.timer
 | `config/noctalia/config.toml` | бар, виджеты, плагины |
 | `config/alacritty/alacritty.toml` | терминал: шрифт, курсор, бинды, import темы |
 | `config/environment.d/98-qt-platformtheme.conf` | тема Qt-приложений для systemd-юнитов |
+| `local/bin/kiview-quicklook.sh` | Quick Look: забирает выделение из Dolphin, открывает в Kiview |
+| `local/bin/klipper-shim.py` | шим `org.kde.klipper` — без него Kiview вне Plasma не работает |
+| `config/systemd/user/klipper-shim.service` | автозапуск шима |
+| `local/share/kio/servicemenus/kiview.desktop` | Quick Preview в правом клике Dolphin |
 
 Конфиг разбит на `include` не просто так: после правки одного файла niri
 перечитывает только его, а не весь конфиг. Не склеивай обратно в один файл.
@@ -230,6 +247,29 @@ Alacritty приводит и бинд, и ввод к нижнему (`config/b
 
 Правь **здесь**, в репо. Копия в `~/01_Projects/niri-windows/` — устарела
 (в ней нет комментария про `pos_in_scrolling_layout`), её можно удалить.
+
+## Quick Look (Mod+Space в Dolphin)
+
+Превью файла как в macOS: встать на файл в Dolphin → `Mod+Space`.
+Управление в окне: `←/→` — листать, `Esc/q` — закрыть, `Enter/w` — открыть
+в родной программе. Голый `Space` не используется осознанно: бинды niri
+глобальные, он бы съедал пробел при печати везде.
+
+Цепочка: бинд в `cfg/keybinds.kdl` → `local/bin/kiview-quicklook.sh`
+(проверяет фокус на Dolphin, дёргает его `copy_location` по DBus, читает
+путь из буфера через `wl-paste`, буфер потом восстанавливает) →
+`flatpak io.github.nyre221.kiview -s <путь>`. Правый клик → Quick Preview
+работает и без всего этого (путь приходит через `%F` напрямую).
+
+Зачем шим: flatpak-сборка Kiview во всех режимах ходит в
+`org.kde.klipper`, а Klipper живёт только в Plasma — без
+`klipper-shim.py` окно падает с `The name is not activatable`. Шим висит
+systemd-юнитом, `install.sh` включает его сам.
+
+Диагностика — `/tmp/kiview-quicklook.log` (последние 50 строк):
+`SKIP` = фокус не на Dolphin, `FAIL no bus` = Dolphin ещё не встал на
+шину, `enabled=false` = файл не выделен, `OPEN <путь>` = всё хорошо,
+дальше смотреть выхлоп самого Kiview (он тоже пишется в лог).
 
 ## Проверка перед коммитом
 

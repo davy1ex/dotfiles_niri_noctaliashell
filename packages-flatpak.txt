@@ -1,0 +1,14 @@
+# Приложения из flatpak (ставятся в систему, не трогают pacman).
+#
+# Установка:  ./install.sh -f
+# Или вручную:  flatpak install -y <id>
+#
+# Формат: <flatpak-id> [# комментарий]
+# Список снят с текущей машины: flatpak list --app
+# Пустой вывод означает «уже установлено».
+
+app.zen_browser.zen          # Zen — браузер
+com.obsproject.Studio        # OBS Studio
+io.github.nyre221.kiview     # Kiview — просмотр изображений
+it.mijorus.gearlever         # Gear Lever — переключатель тем GTK
+org.telegram.desktop         # Telegram

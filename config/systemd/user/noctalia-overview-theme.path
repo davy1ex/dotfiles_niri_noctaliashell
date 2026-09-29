@@ -1,0 +1,15 @@
+[Unit]
+Description=Следить за сменой темы Noctalia
+Documentation=file:%h/dotfiles/docs/portability.md
+
+[Path]
+# Любой из двух файлов означает «тема поменялась»:
+#   kdeglobals      — его перезаписывает Noctalia (шаблон kcolorscheme + kde-color-scheme)
+#   noctalia.colors — палитра, из которой kdeglobals берутся цвета
+# PathChanged ловит и запись, и переименование (KConfig пишет через temp + rename).
+PathChanged=%h/.config/kdeglobals
+PathChanged=%h/.local/share/color-schemes/noctalia.colors
+Unit=noctalia-overview-theme.service
+
+[Install]
+WantedBy=default.target
