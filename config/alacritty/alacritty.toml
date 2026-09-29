@@ -1,0 +1,80 @@
+[general]
+import = ["~/.config/alacritty/themes/noctalia.toml"]
+working_directory = "None"
+live_config_reload = true
+
+[env]
+TERM = "xterm-256color"
+WINIT_X11_SCALE_FACTOR = "1.0"
+
+[window]
+dimensions = { columns = 100, lines = 30 }
+dynamic_padding = true
+decorations = "Full"
+opacity = 0.8
+title = "Alacritty@CachyOS"
+class = { instance = "Alacritty", general = "Alacritty" }
+# decorations_theme_variant намеренно не задан: значение из конфига перебило бы
+# тему, а жёсткий "Dark" ломал бы светлую. Без него заголовок следует за палитрой.
+
+[scrolling]
+history = 10000
+multiplier = 3
+
+[font]
+normal = { family = "monospace", style = "Regular" }
+bold = { family = "monospace", style = "Bold" }
+italic = { family = "monospace", style = "Italic" }
+bold_italic = { family = "monospace", style = "Bold Italic" }
+size = 12.0
+
+# Палитра приходит из themes/noctalia.toml (шаблон Noctalia). Свои цвета здесь
+# перебивают импорт: import грузится раньше этого файла, а importing-файл — последним.
+[colors]
+draw_bold_text_with_bright_colors = true
+
+[selection]
+semantic_escape_chars = ",│`|:\"' ()[]{}<>\t"
+save_to_clipboard = true
+
+[cursor]
+style = { shape = "Underline", blinking = "Off" }
+unfocused_hollow = true
+thickness = 0.15
+
+[mouse]
+hide_when_typing = true
+bindings = [
+{ mouse = "Middle", mods = "None", action = "PasteSelection" },
+]
+
+[keyboard]
+# Alacritty не знает про раскладки: бинд ищется по keysym, который прислала
+# текущая раскладка. В RU физическая C даёт «с», и Ctrl+Shift+C не срабатывает.
+# Поэтому у буквенных биндов есть кириллические дубли (V→м, C→с, F→а, B→и,
+# L→д). Регистр не важен: Alacritty приводит и бинд, и ввод к нижнему регистру.
+# Небуквенные клавиши (=, -, 0, PageUp…) в обеих раскладках одинаковы.
+bindings = [
+{ key = "Paste", mods = "None", action = "Paste" },
+{ key = "Copy", mods = "None", action = "Copy" },
+{ key = "L", mods = "Control", action = "ClearLogNotice" },
+{ key = "L", mods = "Control", mode = "~Vi", chars = "\f" },
+{ key = "PageUp", mods = "Shift", mode = "~Alt", action = "ScrollPageUp" },
+{ key = "PageDown", mods = "Shift", mode = "~Alt", action = "ScrollPageDown" },
+{ key = "Home", mods = "Shift", mode = "~Alt", action = "ScrollToTop" },
+{ key = "End", mods = "Shift", mode = "~Alt", action = "ScrollToBottom" },
+{ key = "V", mods = "Control|Shift", action = "Paste" },
+{ key = "C", mods = "Control|Shift", action = "Copy" },
+{ key = "F", mods = "Control|Shift", action = "SearchForward" },
+{ key = "B", mods = "Control|Shift", action = "SearchBackward" },
+{ key = "C", mods = "Control|Shift", mode = "Vi", action = "ClearSelection" },
+{ key = "Key0", mods = "Control", action = "ResetFontSize" },
+# Кириллические дубли: Shift+физическая C в RU даёт «с», и т. д.
+{ key = "м", mods = "Control|Shift", action = "Paste" },
+{ key = "с", mods = "Control|Shift", action = "Copy" },
+{ key = "а", mods = "Control|Shift", action = "SearchForward" },
+{ key = "и", mods = "Control|Shift", action = "SearchBackward" },
+{ key = "с", mods = "Control|Shift", mode = "Vi", action = "ClearSelection" },
+{ key = "д", mods = "Control", action = "ClearLogNotice" },
+{ key = "д", mods = "Control", mode = "~Vi", chars = "\f" },
+]

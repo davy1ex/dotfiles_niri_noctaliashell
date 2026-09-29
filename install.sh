@@ -74,6 +74,7 @@ done
 LINKS=(
     "config/niri|$HOME/.config/niri"
     "config/noctalia|$HOME/.config/noctalia"
+    "config/alacritty/alacritty.toml|$HOME/.config/alacritty/alacritty.toml"
     "config/environment.d/98-qt-platformtheme.conf|$HOME/.config/environment.d/98-qt-platformtheme.conf"
     "local/share/noctalia/plugins/niri-windows|$HOME/.local/share/noctalia/plugins/niri-windows"
     "local/bin/toggle-kb-layout|$HOME/.local/bin/toggle-kb-layout"
@@ -194,6 +195,16 @@ fixups() {
             run xdg-mime default org.kde.dolphin.desktop inode/directory
             done_msg "файловый менеджер по умолчанию: Dolphin (было ${current:-нет})"
         fi
+    fi
+
+    # Alacritty импортирует themes/noctalia.toml (его пишет шаблон alacritty в
+    # Noctalia). Без шаблона файла нет, и терминал остаётся на дефолтной палитре.
+    local alc_theme="$HOME/.config/alacritty/themes/noctalia.toml"
+    if [[ -f "$alc_theme" ]]; then
+        skip "тема Alacritty на месте"
+    else
+        warn "нет ${alc_theme/#$HOME/\~} — в Noctalia включи Settings → Templates → Alacritty,
+       иначе терминал не переключится между светлой и тёмной"
     fi
 }
 

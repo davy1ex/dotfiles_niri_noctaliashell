@@ -11,6 +11,7 @@
 ├── config/
 │   ├── niri/               → ~/.config/niri
 │   ├── noctalia/           → ~/.config/noctalia
+│   ├── alacritty/          → ~/.config/alacritty  (пофайлово)
 │   └── environment.d/      → ~/.config/environment.d  (пофайлово)
 ├── local/
 │   ├── bin/                → ~/.local/bin  (пофайлово)
@@ -35,10 +36,12 @@ cd ~/dotfiles
 
 ### Первый вход: что доделать руками
 
-1. **Включить шаблон `KColorScheme`** в Noctalia: Settings → Templates →
-   KColorScheme. Он пишет `~/.local/share/color-schemes/noctalia.colors` и
-   `~/.config/kdeglobals` — без него тема Qt/KDE-приложений не работает и
-   `install.sh` об этом предупредит. `install.sh` можно перезапустить после.
+1. **Включить шаблоны в Noctalia**: Settings → Templates → **KColorScheme**
+   и **Alacritty**. Первый пишет `~/.local/share/color-schemes/noctalia.colors`
+   и `~/.config/kdeglobals` (тема Qt/KDE-приложений), второй —
+   `~/.config/alacritty/themes/noctalia.toml` (тема терминала). Без них
+   Dolphin остаётся в Breeze, а терминал — на дефолтной палитре;
+   `install.sh` об этом предупредит и его можно перезапустить после.
 2. **Создать сессию niri** (WM-сессия / tty). `packages.txt` ставит бинари,
    но не настраивает автозапуск — это зависит от того, чем ты входишь.
    Сама сессия — `niri.desktop` из пакета `niri`.
@@ -146,6 +149,7 @@ systemctl --user enable --now dotfiles-push.timer
 | `config/niri/cfg/animation.kdl` | анимации |
 | `config/niri/cfg/autostart.kdl` | что стартует вместе с niri |
 | `config/noctalia/config.toml` | бар, виджеты, плагины |
+| `config/alacritty/alacritty.toml` | терминал: шрифт, курсор, бинды, import темы |
 | `config/environment.d/98-qt-platformtheme.conf` | тема Qt-приложений для systemd-юнитов |
 
 Конфиг разбит на `include` не просто так: после правки одного файла niri
@@ -183,6 +187,37 @@ kreadconfig6 --file ~/.config/kdeglobals --group Colors:Window --key BackgroundN
 Уже открытые терминалы хранят старое значение — после смены конфига их надо
 перезапустить, иначе Qt-приложение, запущенное из старого шелла, возьмёт
 прежнюю тему.
+
+## Alacritty: тема и раскладки
+
+Тема приходит из `themes/noctalia.toml` (её пишет шаблон `alacritty` в
+Noctalia), а `alacritty.toml` только импортирует её:
+
+```toml
+[general]
+import = ["~/.config/alacritty/themes/noctalia.toml"]
+```
+
+**Своих `[colors]` в этом файле быть не должно.** По `alacritty(5)`: «Imports
+are loaded in order… with the importing file being loaded last. If a field is
+already present in a previous import, it will be replaced» — то есть
+`import` перебивается любым значением, объявленным в самом `alacritty.toml`.
+Именно так выглядел залипший Nord: тема обновлялась, а фон перекрывался
+хардкодом. По той же причине убран `decorations_theme_variant = "Dark"`:
+без него заголовок окна следует за палитрой сам.
+
+**Бинды не работают в русской раскладке.** Alacritty ищет бинд по keysym,
+который прислала активная раскладка: физическая `C` в RU даёт `с`, и
+`Ctrl+Shift+C` не срабатывает. У буквенных биндов в конфиге есть
+кириллические дубли (`V→м`, `C→с`, `F→а`, `B→и`, `L→д`); регистр не важен —
+Alacritty приводит и бинд, и ввод к нижнему (`config/bindings.rs`:
+`keycode.to_lowercase()`, `alacritty/src/input/keyboard.rs`:
+`Key::Character(ch.to_lowercase())`). Небуквенные клавиши (`=`, `-`, `0`,
+`PageUp`) в обеих раскладках одинаковы, дублей не требуют.
+
+Сам **niri** от этого не страдает: при резолве латинских клавиш он берёт
+первую раскладку из списка (`layout "us,ru"`), поэтому `Mod+E` работает
+в любой (`Configuration: Key Bindings` в вики niri).
 
 ## Плагин winlist
 
