@@ -12,6 +12,12 @@ binds {
     Mod+Return                          hotkey-overlay-title="Open Terminal: Alacritty" { spawn "alacritty"; }
     Mod+B                               hotkey-overlay-title="Open Browser: firefox" { spawn "firefox"; }
 
+    // ─── Voice Input ───
+    // voxtype работает как демон; бинд просто дёргает его по IPC.
+    // repeat=false обязателен: иначе авто-повтор при удержании будет
+    // бесконечно включать/выключать запись.
+    Mod+Shift+Space                    repeat=false hotkey-overlay-title="Voice Input: voxtype start/stop" { spawn-sh "voxtype record toggle"; }
+
     // ─── Keyboard Layout ───
     Caps_Lock                           hotkey-overlay-title="Switch Keyboard Layout" { spawn-sh "~/.local/bin/toggle-kb-layout"; }
 

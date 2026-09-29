@@ -2,3 +2,8 @@
 // https://github.com/YaLTeR/niri/wiki/Configuration:-Miscellaneous#spawn-sh-at-startup
 
     spawn-at-startup "noctalia"
+
+    // Демон voxtype: принимает команды от бинда Mod+Shift+Space
+    // (voxtype record toggle) и пишет статус в $XDG_RUNTIME_DIR/voxtype.
+    // -q — только ошибки, чтобы не спамить в лог niri.
+    spawn-at-startup "voxtype" "-q" "daemon"

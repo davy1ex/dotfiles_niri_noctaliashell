@@ -3,12 +3,16 @@
         clip-to-geometry true
     }
 
-    window-rule {
-        background-effect {
-          blur true
-          xray false
-        }
-    }
+    // ВРЕМЕННО ОТКЛЮЧЕНО ДЛЯ ДИАГНОСТИКИ тиринга в Zen.
+    // Причина: blur = readback текстуры каждый кадр; при скролле Zen не
+    // успевает за 60 Гц → недорисованные кадры. Проверь скролл без blur;
+    // если артефакт ушёл — оставляй выключенным или сузь правило по match.
+    // window-rule {
+    //     background-effect {
+    //       blur true
+    //       xray false
+    //     }
+    // }
 
     // Floating Noctalia settings window.
     window-rule {
