@@ -87,12 +87,15 @@ LINKS=(
     "local/share/noctalia/plugins/niri-windows|$HOME/.local/share/noctalia/plugins/niri-windows"
     "local/bin/toggle-kb-layout|$HOME/.local/bin/toggle-kb-layout"
     "local/bin/noctalia-overview-theme|$HOME/.local/bin/noctalia-overview-theme"
+    "local/bin/gtk3-theme-sync|$HOME/.local/bin/gtk3-theme-sync"
     "local/bin/kiview-quicklook.sh|$HOME/.local/bin/kiview-quicklook.sh"
     "local/bin/klipper-shim.py|$HOME/.local/bin/klipper-shim.py"
     "local/share/kio/servicemenus/kiview.desktop|$HOME/.local/share/kio/servicemenus/kiview.desktop"
     "config/systemd/user/klipper-shim.service|$HOME/.config/systemd/user/klipper-shim.service"
     "config/systemd/user/noctalia-overview-theme.service|$HOME/.config/systemd/user/noctalia-overview-theme.service"
     "config/systemd/user/noctalia-overview-theme.path|$HOME/.config/systemd/user/noctalia-overview-theme.path"
+    "config/systemd/user/gtk3-theme-sync.service|$HOME/.config/systemd/user/gtk3-theme-sync.service"
+    "config/systemd/user/gtk3-theme-sync.path|$HOME/.config/systemd/user/gtk3-theme-sync.path"
 )
 
 BACKUP_DIR=""
@@ -535,6 +538,35 @@ reload_session() {
         fi
     else
         warn "нет systemctl — тему обзора воркспейсов не включаю"
+    fi
+
+    # Синхронизация GTK3-темы с color-scheme. Нужна, потому что CachyOS
+    # задаёт gtk-theme='adw-gtk3-dark' системным дефолтом и цвет, заданный
+    # пользователем, его не перебивает.
+    if command -v gsettings >/dev/null 2>&1; then
+        local gtk_theme
+        gtk_theme="$(gsettings get org.gnome.desktop.interface gtk-theme 2>/dev/null | tr -d "'")"
+        case "$gtk_theme" in
+            "" | adw-gtk3 | adw-gtk3-dark | adw-gtk3-high-contrast | adw-gtk3-high-contrast-dark)
+                if command -v systemctl >/dev/null 2>&1; then
+                    if systemctl --user is-enabled gtk3-theme-sync.path >/dev/null 2>&1; then
+                        run systemctl --user restart gtk3-theme-sync.path 2>/dev/null || true
+                    else
+                        run systemctl --user enable --now gtk3-theme-sync.path \
+                            && done_msg "GTK3-тема синхронизируется с color-scheme" \
+                            || warn "не смог включить gtk3-theme-sync.path"
+                    fi
+                    # Разовая синхронизация: на новой машине события ещё не было.
+                    run "$HOME/.local/bin/gtk3-theme-sync" || true
+                else
+                    warn "нет systemctl — синхронизацию GTK3-темы не включаю"
+                fi
+                ;;
+            *)
+                warn "gtk-theme=${gtk_theme:-<пусто>} — не adw-gtk3, синхронизация не тронет
+       (это твой выбор темы; GTK3 останется на adw-gtk3-dark из dconf CachyOS)"
+                ;;
+        esac
     fi
 
     skip "уже открытые терминалы держат прежний QT_QPA_PLATFORMTHEME — перезапусти их"

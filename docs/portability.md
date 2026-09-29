@@ -43,17 +43,40 @@ cd ~/dotfiles
 | Слой приложений | Откуда цвет | Чем настроено | Следует за темой |
 |---|---|---|---|
 | GTK4/libadwaita | `gsettings color-scheme` | сама Noctalia | да |
+| **GTK3** | `gsettings gtk-theme` | `local/bin/gtk3-theme-sync` | **да** (раньше было нет, см. ниже) |
 | Qt6/KF6 (Dolphin, диалоги) | `kdeglobals` → `QT_QPA_PLATFORMTHEME=kde` | `cfg/misc.kdl`, `config/environment.d/`, `kdeglobals[color-scheme]` | да, живьём |
 | Alacritty | `alacritty.toml` → `import themes/noctalia.toml` | шаблон `alacritty` в Noctalia | да, через `live_config_reload` |
 | Обзор воркспейсов niri | `~/.local/state/dotfiles/theme-overview.kdl` | скрипт `noctalia-overview-theme` | да, через `.path`-юнит |
 | Панель Noctalia | сама Noctalia | снимок `config/noctalia/settings.toml` | да |
-| **GTK3** | **ничего — тема зажата в dconf** | `/etc/dconf/.../00-cachyos.conf` | **нет** |
 
-Последняя строка — известная дыра: пакет `cachyos-niri-noctalia` ставит
-системный дефолт `gtk-theme='adw-gtk3-dark'`, `color-scheme` Noctalia
-перезаписывает, а `gtk-theme` — нет. GTK3-приложения всегда тёмные.
-Чинится либо своим `gsettings set`, либо синхронизацией с `color-scheme` —
-пока не сделано.
+### GTK3: почему нужен синхронизатор
+
+Пакет `cachyos-desktop-settings` (тянется `cachyos-niri-noctalia`) кладёт
+системные дефолты в `/etc/dconf/db/local.d/00-cachyos.conf`:
+
+```
+color-scheme='prefer-dark'
+gtk-theme='adw-gtk3-dark'
+```
+
+`color-scheme` Noctalia перезаписывает своим, `gtk-theme` — нет. GTK4
+светлеет, GTK3-приложения и нативный диалог выбора файла остаются тёмными
+навсегда. Поэтому `local/bin/gtk3-theme-sync` переводит `gtk-theme` по
+`color-scheme`: `prefer-dark` → `adw-gtk3-dark`, всё остальное → `adw-gtk3`.
+
+Три решения, которые стоит знать, прежде чем что-то править:
+
+- **Триггер — `~/.config/dconf/user`, а не `kdeglobals`.** При смене темы
+  Noctalia пишет `kdeglobals` примерно на 100 мс раньше gsettings; триггер по
+  нему успевал бы прочитать старое значение `color-scheme`. dconf пишется
+  после — к моменту пробуждения новое уже на месте.
+- **Через dconf проходит любое изменение gsettings**, поэтому юнит
+  срабатывает часто, а скрипт идемпотентен: пишет, только если значение
+  реально отличается.
+- **Чужие темы не затираются.** Скрипт работает только с семейством
+  `adw-gtk3*`; если стоит Materia или Breeze-gtk, он молча уходит и
+  `install.sh` предупреждает об этом. Отключить синхронизацию:
+  `systemctl --user disable --now gtk3-theme-sync.path`.
 
 ### Шаблоны Noctalia — обязательный шаг
 
@@ -161,8 +184,11 @@ niri msg keyboard-layouts                       # us, ru на месте
 kreadconfig6 --file ~/.config/kdeglobals --group KDE --key color-scheme       # noctalia
 ls /usr/lib/qt6/plugins/platformthemes/KDEPlasmaPlatformTheme6.so             # тема Qt есть
 ls ~/.config/alacritty/themes/noctalia.toml                                    # тема терминала
-cat ~/.local/state/dotfiles/theme-overview.kdl                                 # тема обзора
+ls ~/.local/state/dotfiles/theme-overview.kdl                                 # тема обзора
+grep backdrop-color ~/.local/state/dotfiles/theme-overview.kdl              # цвет обзора
 systemctl --user is-active noctalia-overview-theme.path                        # слушает тему
+systemctl --user is-active gtk3-theme-sync.path                                # GTK3 ← color-scheme
+gsettings get org.gnome.desktop.interface gtk-theme                            # adw-gtk3(-dark)
 xdg-mime query default inode/directory                    # org.kde.dolphin.desktop
 noctalia config validate                                  # TOML оболочки
 flatpak list --app | wc -l                                # 5

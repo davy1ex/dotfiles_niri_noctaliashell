@@ -1,0 +1,18 @@
+[Unit]
+Description=Следить за color-scheme (dconf) для синхронизации GTK3-темы
+Documentation=file:%h/dotfiles/docs/portability.md
+
+[Path]
+# Через dconf проходит любое изменение gsettings, а не только color-scheme.
+# Это значит лишние срабатывания, поэтому сам скрипт идемпотентен и пишет
+# только при реальном расхождении.
+#
+# Почему не kdeglobals (его тоже переписывает Noctalia): он обновляется
+# примерно на 100 мс раньше gsettings, и скрипт успевал бы прочитать старое
+# значение color-scheme. dconf пишется после — к моменту пробуждения уже
+# новое. dconf-mmap блокирует файл, поэтому следим за каталогом.
+PathModified=%h/.config/dconf/user
+Unit=gtk3-theme-sync.service
+
+[Install]
+WantedBy=default.target

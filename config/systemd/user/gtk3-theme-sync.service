@@ -1,0 +1,10 @@
+[Unit]
+Description=Синхронизировать GTK3-тему с системным color-scheme
+Documentation=file:%h/dotfiles/docs/portability.md
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/bin/gtk3-theme-sync
+
+[Install]
+WantedBy=default.target

@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+#
+# Держит GTK3-тему в синхроне с системным color-scheme.
+#
+# Зачем: пакет cachyos-desktop-settings (тянется cachyos-niri-noctalia) кладёт
+# в /etc/dconf/db/local.d/00-cachyos.conf системные дефолты
+#     color-scheme='prefer-dark'
+#     gtk-theme='adw-gtk3-dark'
+# Noctalia перезаписывает color-scheme своим, а gtk-theme — нет. В итоге
+# GTK4/libadwaita светлеют, а GTK3-приложения и нативный диалог выбора файла
+# навсегда остаются тёмными.
+#
+# Срабатывание: gtk3-theme-sync.path смотрит на ~/.config/dconf/user. Именно
+# dconf, а не kdeglobals: при смене темы Noctalia пишет kdeglobals на ~95 мс
+# раньше gsettings, и триггер по kdeglobals успевал бы прочитать старое
+# значение color-scheme.
+#
+# Через dconf проходит любое изменение gsettings, поэтому скрипт обязан быть
+# идемпотентным — он пишет, только если значение реально отличается.
+#
+#   Запуск вручную:  gtk3-theme-sync
+set -euo pipefail
+
+SCHEMA=org.gnome.desktop.interface
+
+get() { gsettings get "$SCHEMA" "$1" 2>/dev/null | tr -d "'"; }
+
+scheme="$(get color-scheme)"
+current="$(get gtk-theme)"
+
+case "$scheme" in
+    prefer-dark) want=adw-gtk3-dark ;;
+    *)           want=adw-gtk3 ;;      # prefer-light и default
+esac
+
+# Управляем только семейством adw-gtk3. Если человек поставил свою тему
+# (Adwaita, Materia, Breeze-gtk), её молча затирать нельзя — это его выбор,
+# и он вправе не иметь синхронизации.
+case "$current" in
+    "" | adw-gtk3 | adw-gtk3-dark | adw-gtk3-high-contrast | adw-gtk3-high-contrast-dark)
+        ;;
+    *)
+        printf 'gtk-theme=%s — не adw-gtk3, не трогаю. Светлая тема до GTK3 не дойдёт.\n' "${current:-<пусто>}"
+        exit 0
+        ;;
+esac
+
+# Тема должна существовать: gsettings примет значение в любом случае, а GTK3
+# потом скажет «no theme». Пакет с обеими темами — adw-gtk-theme.
+if [[ ! -d "/usr/share/themes/$want" && ! -d "$HOME/.themes/$want" ]]; then
+    printf 'темы %s нет в системе — поставь пакет adw-gtk-theme\n' "$want"
+    exit 0
+fi
+
+if [[ "$current" == "$want" ]]; then
+    exit 0
+fi
+
+gsettings set "$SCHEMA" gtk-theme "$want"
+printf 'color-scheme=%s → gtk-theme=%s\n' "${scheme:-<unset>}" "$want"

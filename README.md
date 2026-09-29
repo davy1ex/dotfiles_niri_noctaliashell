@@ -95,9 +95,13 @@ Nautilus из списка убран: `Mod+E` открывает Dolphin, и `i
 
 Оговорка про `00-cachyos.conf`: он задаёт `gtk-theme='adw-gtk3-dark'` и
 `color-scheme='prefer-dark'` **системными дефолтами**. `color-scheme` Noctalia
-перезаписывает своим, а `gtk-theme` остаётся: GTK3-приложения (не Qt) не
-светлеют никогда. Лечится либо своим `gsettings set`, либо синхронизацией с
-`color-scheme` — пока не сделано.
+перезаписывает своим, а `gtk-theme` — нет, поэтому GTK3-приложения были бы
+тёмными навсегда. Лечится синхронизатором
+`local/bin/gtk3-theme-sync` (юнит `gtk3-theme-sync.path` следит за dconf):
+`prefer-dark` → `adw-gtk3-dark`, иначе `adw-gtk3`. Чужие темы он не трогает —
+если поставил не `adw-gtk3`, отключи синхронизацию через
+`systemctl --user disable --now gtk3-theme-sync.path`. Подробности в
+[`docs/portability.md`](docs/portability.md).
 
 ### Состояние Noctalia — теперь в репозитории
 
