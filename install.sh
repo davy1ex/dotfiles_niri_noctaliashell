@@ -174,6 +174,27 @@ fixups() {
         warn "нет ${colors/#$HOME/\~} — в Noctalia включи Settings → Templates → KColorScheme,
        иначе Qt-приложения останутся в теме Breeze (светлой)"
     fi
+
+    # Плагин темы ставит plasma-integration. Без него QT_QPA_PLATFORMTHEME=kde
+    # не находит что включать — Qt молча берёт дефолтную палитру.
+    if [[ -e /usr/lib/qt6/plugins/platformthemes/KDEPlasmaPlatformTheme6.so ]]; then
+        skip "плагин KDE-темы на месте"
+    else
+        warn "нет KDEPlasmaPlatformTheme6.so — поставь plasma-integration (и Qt6 вообще),
+       иначе Qt-приложения останутся без темы"
+    fi
+
+    # Dolphin — файловый менеджер по умолчанию (Mod+E в keybinds.kdl).
+    if command -v xdg-mime >/dev/null 2>&1 && [[ -f /usr/share/applications/org.kde.dolphin.desktop ]]; then
+        local current
+        current="$(xdg-mime query default inode/directory 2>/dev/null || true)"
+        if [[ "$current" == "org.kde.dolphin.desktop" ]]; then
+            skip "файловый менеджер по умолчанию: Dolphin"
+        else
+            run xdg-mime default org.kde.dolphin.desktop inode/directory
+            done_msg "файловый менеджер по умолчанию: Dolphin (было ${current:-нет})"
+        fi
+    fi
 }
 
 # noctalia msg печатает "ok"/"ok (exporting in background)" в stdout —

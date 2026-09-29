@@ -41,6 +41,7 @@ cd ~/dotfiles
    `install.sh` об этом предупредит. `install.sh` можно перезапустить после.
 2. **Создать сессию niri** (WM-сессия / tty). `packages.txt` ставит бинари,
    но не настраивает автозапуск — это зависит от того, чем ты входишь.
+   Сама сессия — `niri.desktop` из пакета `niri`.
 3. **Перезапустить открытые терминалы**: они держат прежнее окружение.
 
 Проверить, что всё встало:
@@ -49,7 +50,35 @@ cd ~/dotfiles
 niri validate                                        # config is valid
 kreadconfig6 --file ~/.config/kdeglobals --group KDE --key color-scheme   # noctalia
 kreadconfig6 --file ~/.config/kdeglobals --group Colors:Window --key BackgroundNormal
+ls /usr/lib/qt6/plugins/platformthemes/KDEPlasmaPlatformTheme6.so        # тема Qt есть
+xdg-mime query default inode/directory               # org.kde.dolphin.desktop
 ```
+
+`install.sh` в секции «Доработки» проверяет всё это сам и говорит, чего не
+хватает, — в том числе предупреждает, если `plasma-integration` не стоит и
+`QT_QPA_PLATFORMTHEME=kde` упирается в пустоту.
+
+### Qt и Dolphin на чистой CachyOS
+
+Из коробки в CachyOS + niri + Noctalia нет ни Qt, ни Dolphin — красить нечего,
+пока их не поставить. Всё это в `packages.txt` и ставится ключом `-p`:
+
+- `dolphin` — Qt6/KF6-приложение, ради него вся возня с темой;
+- `plasma-integration` — плагин `KDEPlasmaPlatformTheme6.so`, без него
+  `QT_QPA_PLATFORMTHEME=kde` молча ничего не делает;
+- `xdg-desktop-portal-kde` — бэкенд, который рисует диалоги «открыть/сохранить»;
+- `kconfig` — `kreadconfig6`/`kwriteconfig6` для `~/.config/kdeglobals`;
+- `cachyos-niri-noctalia` — мета-пакет: niri, noctalia, порталы, курсор, шрифты
+  и dconf-дефолты из `/etc/dconf/db/local.d/00-cachyos.conf`.
+
+Nautilus из списка убран: `Mod+E` открывает Dolphin, и `install.sh` ставит его
+файловым менеджером по умолчанию через `xdg-mime`.
+
+Оговорка про `00-cachyos.conf`: он задаёт `gtk-theme='adw-gtk3-dark'` и
+`color-scheme='prefer-dark'` **системными дефолтами**. `color-scheme` Noctalia
+перезаписывает своим, а `gtk-theme` остаётся: GTK3-приложения (не Qt) не
+светлеют никогда. Лечится либо своим `gsettings set`, либо синхронизацией с
+`color-scheme` — пока не сделано.
 
 ### Чего в репозитории нет
 

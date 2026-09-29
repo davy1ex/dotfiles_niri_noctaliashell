@@ -6,8 +6,10 @@
 # Или вручную:  sudo pacman -S --needed niri noctalia ...
 
 # ── композитор и оболочка ──────────────────────────────────────────────
-niri
-noctalia
+# Либо одним мета-пакетом cachyos-niri-noctalia (тянет niri, noctalia,
+# порталы, курсор, шрифты, adw-gtk-theme и dconf-дефолты из
+# /etc/dconf/db/local.d/00-cachyos.conf), либо эти строки по отдельности.
+cachyos-niri-noctalia
 
 # ── X11-приложения (Steam, Discord, часть игр) ──────────────────────────
 xwayland-satellite
@@ -16,6 +18,7 @@ xwayland-satellite
 xdg-desktop-portal
 xdg-desktop-portal-gnome
 xdg-desktop-portal-gtk
+xdg-desktop-portal-kde      # бэкенд, рисующий диалоги «открыть/сохранить»
 wl-clipboard
 
 # ── терминал, который спавнится с горячих клавиш ───────────────────────
@@ -36,24 +39,26 @@ ttf-liberation
 # Любой один. Список — что стоит сейчас; возьми свой, если отличается.
 ttf-meslo-nerd
 
-# ── файловый менеджер и редактор из биндов ─────────────────────────────
-nautilus
+# ── файловый менеджер (Mod+E в cfg/keybinds.kdl) и браузер ────────────
+dolphin
 firefox
 
-# ── Qt/KDE-приложения: тема из палитры Noctalia ─────────────────────────
-# Dolphin + плагин KDE-платформенной темы + бэкенд портала, который рисует
-# диалоги «открыть/сохранить» (в т.ч. Ctrl+O в редакторах). Без
-# plasma-integration нет KDEPlasmaPlatformTheme6.so, и QT_QPA_PLATFORMTHEME=kde
-# не сработает.
-dolphin
+# ── Qt/KDE: тема приложений из палитры Noctalia ─────────────────────────
+# Dolphin — это Qt6/KF6, без Qt красить нечего. plasma-integration даёт
+# плагин KDEPlasmaPlatformTheme6.so (без него QT_QPA_PLATFORMTHEME=kde
+# молча ничего не делает), kconfig — kreadconfig6/kwriteconfig6, которыми
+# install.sh правит ~/.config/kdeglobals.
 plasma-integration
-xdg-desktop-portal-kde
-kconfig                # kreadconfig6/kwriteconfig6 — install.sh правит kdeglobals
+kconfig
 
 # qt6ct НЕ нужен: цвета Qt-приложений берутся из kdeglobals, который
 # перезаписывает Noctalia. Поставишь qt6ct и выставишь
 # QT_QPA_PLATFORMTHEME=qt6ct — вернёшь рассинхрон палитры и иконок
 # (см. README → «Темы Qt/KDE-приложений»).
+
+# Nautilus убран: Mod+E открывает Dolphin, он же файловый менеджер по
+# умолчанию (install.sh ставит xdg-mime). Если всё-таки нужен GNOME-шный —
+# верни строку nautilus в этот файл.
 
 # ── прочее, что ты ставил мимо конфигов ────────────────────────────────
 # Убери строки, которые не нужны. Формат: имя пакета [# комментарий]
