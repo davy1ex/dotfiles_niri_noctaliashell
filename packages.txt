@@ -52,8 +52,15 @@ ttf-meslo-nerd
 # иконок. Пакет называется именно так — с лишней «i».
 otf-hasklig-nerd
 
-# ── файловый менеджер (Mod+E в cfg/keybinds.kdl) и браузер ────────────
+# ── файлы: Dolphin по умолчанию, Nautilus для Mod+E + Space Quick Look ──
 dolphin
+nautilus
+sushi
+
+# ── просмотрщик изображений и видео-кодеки ──────────────────────────────
+loupe
+gst-plugins-base
+gst-plugins-good
 firefox
 
 # ── Qt/KDE: тема приложений из палитры Noctalia ─────────────────────────

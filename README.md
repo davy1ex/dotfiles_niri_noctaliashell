@@ -13,6 +13,7 @@
 ├── config/
 │   ├── niri/               → ~/.config/niri
 │   ├── noctalia/           → ~/.config/noctalia
+│   ├── mimeapps.list       → ~/.config/mimeapps.list (дефолты приложений)
 │   ├── alacritty/          → ~/.config/alacritty  (пофайлово)
 │   ├── systemd/user/       → ~/.config/systemd/user  (пофайлово)
 │   └── environment.d/      → ~/.config/environment.d  (пофайлово)
@@ -100,8 +101,11 @@ xdg-mime query default inode/directory               # org.kde.dolphin.desktop
 - `cachyos-niri-noctalia` — мета-пакет: niri, noctalia, порталы, курсор, шрифты
   и dconf-дефолты из `/etc/dconf/db/local.d/00-cachyos.conf`.
 
-Nautilus из списка убран: `Mod+E` открывает Dolphin, и `install.sh` ставит его
-файловым менеджером по умолчанию через `xdg-mime`.
+Dolphin остаётся файловым менеджером по умолчанию для папок. `Mod+E`
+открывает Nautilus (GNOME Files); пакет `sushi` добавляет Quick Look по Space.
+Loupe назначен просмотрщиком изображений, а `gst-plugins-base` и
+`gst-plugins-good` обеспечивают декодирование видео в Sushi. MIME-дефолты
+хранятся в `config/mimeapps.list`.
 
 Оговорка про `00-cachyos.conf`: он задаёт `gtk-theme='adw-gtk3-dark'` и
 `color-scheme='prefer-dark'` **системными дефолтами**. `color-scheme` Noctalia

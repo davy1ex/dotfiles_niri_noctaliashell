@@ -85,6 +85,7 @@ done
 LINKS=(
     "config/niri|$HOME/.config/niri"
     "config/noctalia|$HOME/.config/noctalia"
+    "config/mimeapps.list|$HOME/.config/mimeapps.list"
     "config/alacritty/alacritty.toml|$HOME/.config/alacritty/alacritty.toml"
     "config/environment.d/98-qt-platformtheme.conf|$HOME/.config/environment.d/98-qt-platformtheme.conf"
     "local/share/noctalia/plugins/niri-windows|$HOME/.local/share/noctalia/plugins/niri-windows"
