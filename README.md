@@ -14,6 +14,7 @@
 │   ├── niri/               → ~/.config/niri
 │   ├── noctalia/           → ~/.config/noctalia
 │   ├── mimeapps.list       → ~/.config/mimeapps.list (дефолты приложений)
+│   ├── swappy/             → ~/.config/swappy (редактор скриншотов)
 │   ├── alacritty/          → ~/.config/alacritty  (пофайлово)
 │   ├── systemd/user/       → ~/.config/systemd/user  (пофайлово)
 │   └── environment.d/      → ~/.config/environment.d  (пофайлово)
@@ -106,6 +107,8 @@ Dolphin остаётся файловым менеджером по умолча
 Loupe назначен просмотрщиком изображений, а `gst-plugins-base` и
 `gst-plugins-good` обеспечивают декодирование видео в Sushi. MIME-дефолты
 хранятся в `config/mimeapps.list`.
+Для скриншота с разметкой нажми `Mod+Print`: выбери область, поправь её в
+Swappy, затем `Ctrl+S` сохранит результат, а `Ctrl+C` скопирует его.
 
 Оговорка про `00-cachyos.conf`: он задаёт `gtk-theme='adw-gtk3-dark'` и
 `color-scheme='prefer-dark'` **системными дефолтами**. `color-scheme` Noctalia

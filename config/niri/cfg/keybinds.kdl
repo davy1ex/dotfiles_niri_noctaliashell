@@ -184,6 +184,8 @@ binds {
     Mod+M                               { maximize-window-to-edges; }
 
     // ─── Screenshots ───
+    // Optional annotated capture: select an area, then edit/save in Swappy.
+    Mod+Print                            { spawn-sh "grim -g \"$(slurp)\" - | swappy -f -"; }
     CTRL+Shift+1                        { screenshot; }
     CTRL+Shift+2                        { screenshot-screen; }
     CTRL+Shift+3                        { screenshot-window; }

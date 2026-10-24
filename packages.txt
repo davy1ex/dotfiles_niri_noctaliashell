@@ -21,6 +21,11 @@ xdg-desktop-portal-gtk
 xdg-desktop-portal-kde      # бэкенд, рисующий диалоги «открыть/сохранить»
 wl-clipboard
 
+# ── скриншоты и разметка: Mod+Print → Swappy ──────────────────────────
+grim
+slurp
+swappy
+
 # ── Quick Look в Dolphin (Mod+Space → Kiview, см. README) ─────────────
 # Сам Kiview — flatpak (install.sh ставит его сам в fixups, здесь его нет).
 # flatpak нужен ему же; jq + qt6-tools (qdbus6) — врапперу kiview-quicklook.sh,
