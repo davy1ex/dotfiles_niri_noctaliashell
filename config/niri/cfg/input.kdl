@@ -63,5 +63,4 @@ input {
     // Полностью отключить наведение мыши: заменить блок ниже на
     // просто `// focus-follows-mouse`
     focus-follows-mouse max-scroll-amount="0%"
-    workspace-auto-back-and-forth // Enable workspace back & forth switching
 }
