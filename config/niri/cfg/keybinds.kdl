@@ -198,6 +198,6 @@ binds {
     Mod+Shift+P                         { power-off-monitors; } // Turn off screens (useful for OLED or privacy)
     Mod+O                               repeat=false { toggle-overview; }
 
-    "Print" { spawn "sh" "-c" "grim -g \"$(slurp)\" - | wl-copy"; }
+    "Print" { screenshot; }
     "Mod+V" { spawn "noctalia" "msg" "panel-toggle" "clipboard"; }
 }
